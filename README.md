@@ -67,8 +67,8 @@ To get started:
 
     $ chmod +x run.sh
     $ ./run.sh --help
-    Use: 'producer [TOPIC]' or 'consumer [TOPIC [GROUP]]'
-    Use: 'console-message-producer [TOPIC]' or 'console-message-consumer [TOPIC [GROUP]]'
+    Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'
+    Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'
     Use: 'newtopic TOPIC [N]' to create a topic with N partitions (default 1).
     Use: 'deltopic TOPIC' to delete a topic.
     Default topic is 'measurements' or 'messages' according to chosen producer/consumer type.
