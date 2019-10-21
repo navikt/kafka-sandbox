@@ -48,8 +48,8 @@ public class Bootstrap {
         final LinkedList<String> args = new LinkedList(Arrays.asList(a));
 
         if (args.isEmpty() || args.get(0).isBlank() || "-h".equals(args.get(0)) || "--help".equals(args.get(0))) {
-            System.err.println("Use: 'producer [TOPIC]' or 'consumer [TOPIC [GROUP]]'");
-            System.err.println("Use: 'console-message-producer [TOPIC]' or 'console-message-consumer [TOPIC [GROUP]]'");
+            System.err.println("Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'");
+            System.err.println("Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'");
             System.err.println("Use: 'newtopic TOPIC [N]' to create a topic with N partitions (default 1).");
             System.err.println("Use: 'deltopic TOPIC' to delete a topic.");
             System.err.println("Default topic is '"+ MEASUREMENTS_TOPIC + "' or '" + MESSAGES_TOPIC + "' according to chosen consumer/producer type.");
@@ -58,33 +58,39 @@ public class Bootstrap {
             System.exit(1);
         }
 
-        switch (args.remove()) {
-            case "newtopic":
-                newTopic(args);
-                break;
+        try {
+            switch (args.remove()) {
+                case "newtopic":
+                    newTopic(args);
+                    break;
 
-            case "deltopic":
-                deleteTopic(args);
-                break;
+                case "deltopic":
+                    deleteTopic(args);
+                    break;
 
-            case "producer":
-                measurementProducer(args);
-                break;
+                case "producer":
+                    measurementProducer(args);
+                    break;
 
-            case "consumer":
-                measurementConsumer(args);
-                break;
+                case "consumer":
+                    measurementConsumer(args);
+                    break;
 
-            case "console-message-producer":
-                consoleMessageProducer(args);
-                break;
+                case "console-message-producer":
+                    consoleMessageProducer(args);
+                    break;
 
-            case "console-message-consumer":
-                consoleMessageConsumer(args);
-                break;
+                case "console-message-consumer":
+                    consoleMessageConsumer(args);
+                    break;
 
-            default:
-                System.err.println("Invalid mode");
+                default:
+                    System.err.println("Invalid mode");
+                    System.exit(1);
+            }
+        } catch (IllegalArgumentException | NoSuchElementException e) {
+            System.err.println("Bad syntax");
+            System.exit(1);
         }
     }
 
@@ -94,8 +100,6 @@ public class Bootstrap {
             int partitions = args.isEmpty() ? 1 : Integer.parseInt(args.remove());
             ta.create(topic, partitions);
             LOG.info("New topic '{}' created with {} partitions.", topic, partitions);
-        } catch (NumberFormatException | NoSuchElementException e) {
-            System.err.println("Bad syntax for newtopic ..");
         } catch (Exception e) {
             System.err.println("Failed: "+ e.getMessage());
         }
@@ -106,8 +110,6 @@ public class Bootstrap {
             String topic = args.remove();
             ta.delete(topic);
             LOG.info("Delete topic '{}'", topic);
-        } catch (NoSuchElementException e) {
-            System.err.println("Bad syntax for deltopic ..");
         } catch (Exception e) {
             System.err.println("Failed: "+ e.getMessage());
         }
@@ -115,12 +117,14 @@ public class Bootstrap {
 
     private static void measurementProducer(Queue<String> args) {
         String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
-        producer(topic, Bootstrap::acquireTemperatureSensorMeasurement, m -> m.getDeviceId());
+        Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
+        producer(topic, partition, Bootstrap::acquireTemperatureSensorMeasurement, m -> m.getDeviceId());
     }
 
     private static void consoleMessageProducer(Queue<String> args) {
         String topic = args.isEmpty() ? MESSAGES_TOPIC : args.remove();
-        producer(topic, consoleMessageSupplier(), m -> m.senderId);
+        Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
+        producer(topic, partition, consoleMessageSupplier(), m -> m.senderId);
     }
 
     private static void consoleMessageConsumer(Queue<String> args) {
@@ -139,9 +143,9 @@ public class Bootstrap {
         });
     }
 
-    private static <M> void producer(String topic, Supplier<M> messageSupplier, Function<M, String> keyFunction) {
+    private static <M> void producer(String topic, Integer partition, Supplier<M> messageSupplier, Function<M, String> keyFunction) {
         LOG.info("New producer with PID " + obtainPid());
-        JsonMessageProducer<M> producer = new JsonMessageProducer<>(topic, kafkaProducerProps(), objectMapper(),
+        JsonMessageProducer<M> producer = new JsonMessageProducer<>(topic, partition, kafkaProducerProps(), objectMapper(),
                 messageSupplier, keyFunction, true);
 
         Thread main = Thread.currentThread();

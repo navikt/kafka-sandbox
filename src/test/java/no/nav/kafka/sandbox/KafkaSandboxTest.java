@@ -158,8 +158,8 @@ public class KafkaSandboxTest {
 
         final ExecutorService executor = Executors.newFixedThreadPool(2);
 
-        final var producer = new JsonMessageProducer<Message>(testTopic, kafkaProducerTestConfig(dockerComposeEnv.kafkaPort),
-                Bootstrap.objectMapper(), supplier , m -> "key", true);
+        final var producer = new JsonMessageProducer<Message>(testTopic, null, kafkaProducerTestConfig(dockerComposeEnv.kafkaPort),
+                Bootstrap.objectMapper(), supplier , m -> null, true);
         final Future<?> producerLoop = executor.submit(producer::produceLoop);
 
         outbox.offer(new Message("Hello", "test-sender"));

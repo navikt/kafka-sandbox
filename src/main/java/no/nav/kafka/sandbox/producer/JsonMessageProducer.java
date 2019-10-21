@@ -22,14 +22,27 @@ public class JsonMessageProducer<T> {
     private static final Logger log = LoggerFactory.getLogger(JsonMessageProducer.class);
     private final Supplier<T> messageSupplier;
     private final Function<T, String> keyFunction;
+    private final Integer partition;
     private final boolean nonBlockingSend;
 
-    public JsonMessageProducer(String topic, Map<String,Object> kafkaSettings, ObjectMapper mapper,
+    /**
+     *
+     * @param topic Kakfa topic to send to
+     * @param partition desired partition, or {@code null} for selection based on message key
+     * @param kafkaSettings
+     * @param mapper
+     * @param messageSupplier supplier of messages
+     * @param keyFunction function to derive a key from a message instance. The function may return {@code null} if no
+     *                    key is desired.
+     * @param nonBlockingSend whether to do non-blocking send or wait for each ack
+     */
+    public JsonMessageProducer(String topic, Integer partition, Map<String,Object> kafkaSettings, ObjectMapper mapper,
                                Supplier<T> messageSupplier, Function<T, String> keyFunction,
                                boolean nonBlockingSend) {
         this.mapper = mapper;
         this.kafkaSettings = kafkaSettings;
         this.topic = topic;
+        this.partition = partition;
         this.messageSupplier = messageSupplier;
         this.keyFunction = keyFunction;
         this.nonBlockingSend = nonBlockingSend;
@@ -75,7 +88,7 @@ public class JsonMessageProducer<T> {
         return (String key, T message) -> {
             final String json = mapper.writeValueAsString(message);
             log.debug("Send non-blocking ..");
-            kafkaProducer.send(new ProducerRecord<>(topic, key, json), (metadata, ex) -> {
+            kafkaProducer.send(new ProducerRecord<>(topic, partition, key, json), (metadata, ex) -> {
                 if (ex != null) {
                     log.error("Failed to send message to Kafka", ex);
                 } else {
@@ -93,7 +106,7 @@ public class JsonMessageProducer<T> {
         return (String key, T message) -> {
             String json = mapper.writeValueAsString(message);
             log.debug("Send blocking ..");
-            Future<RecordMetadata> send = kafkaProducer.send(new ProducerRecord<>(topic, key, json));
+            Future<RecordMetadata> send = kafkaProducer.send(new ProducerRecord<>(topic, partition, key, json));
             try {
                 RecordMetadata metadata = send.get();
                 log.debug("Message ack, offset: {}, timestamp: {}, topic-partition: {}-{}",

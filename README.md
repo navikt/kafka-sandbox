@@ -196,50 +196,58 @@ they all see the messages that the single producer sends.
 ### Example: one time message processing with parallel consumer group
 
 In this scenario, it is only desirable to process a message once, but it can be
-processed by any consumer in the consumer group.
+processed by any consumer in a consumer group.
 
 Create a topic with 3 partitions:
 
     $ ./run.sh newtopic any_once 3
-    [...]
     
-Start a producer:
+Start three producers in three terminals, one for each partition:
 
-    $ ./run.sh producer any_once
-    
-Start three consumers in the same group, run x 3:
+    $ ./run.sh producer any_once 0
 
-    $ ./run.sh consumer any_once group
+    $ ./run.sh producer any_once 1
 
-After starting the first one, you may see that it gets assigned to all three
-partitions in the topic. After starting all three, you may notice that only one
-of them actually receives and displayes messages from the producer. This is the
-consumer that happens be be assigned to the partition that the single producer
-is appending to.
+    $ ./run.sh producer any_once 2
 
-The producer writes only to a single partition because all the measurement
-messages it sends have the same "sensor device id" in the demo code, which is
-used as Kafka record key. When a key is used, the partition number is chosen,
-*by the producer itself*, based on a hash of the key value. So all messages
-having the same key go to the same partition.
-
-To get messages onto the other partitions of the topic, fire up some more
-producers, which will be assigned different sensor-ids, and hence produce
-messages with different keys:
-
-    $ ./run.sh producer any_once
-    
-The producer logs the partition it writes to, so you will be able to see if any
-of the new producers write to a different partition than the first one. If not,
-restart some them to get assigned new ids. The producer is generally free to
-choose partition and can assign a static partition to all messages if so
-desired. However, the demo code in kafka-sandbox does not support that yet (feel
-free to add it).
-
-See the Apache code for class
+Here we are explicitly specifying which partition each producer should write to,
+so that we ensure an even distribution of messages for the purpose of this
+example. If partition is left unspecified, the producer will select a partition
+based on the Kafka record keys. The producer of "measurement" messages in the
+demo code uses a fixed "sensor device id" based on the PID as key, and so the
+messages become fixed to a random partition. See the Apache code for class
 `org.apache.kafka.clients.producer.internals.DefaultPartitioner` - it is not
 complicated and explains it in detail. The partitioner class [strategy] to use
 is part of the Kafka producer config.
+
+Next, we are going to start consumer processes.
+
+Begin with a single consumer:
+
+    $ ./run.sh consumer any_once group
+    
+You will notice that this first consumer gets assigned all three partitions on
+the topic and starts displaying received messages.
+
+Let's scale up to another consumer. Run in a new terminal:
+
+    $ ./run.sh consumer any_once group
+
+When this consumer joins, you can see rebalancing messages, and it will be
+assigned one or two partitions from the topic, while the first is removed from
+the corresponding number of partitions. Now the load is divided betweeen the two
+running consumers.
+
+Scale further by starting a third consumer in a new terminal:
+
+    $ ./run.sh consumer any_once group
+
+After the third one joins, a new rebalancing will occur and they will each have
+one partition assigned. Now the load is divided evenly and messages are
+processed by three parallel processes.
+
+Try to start another fourth consumer (same topic/group) and see what happens.
+(Hint: you will not gain anything wrt. message processing capacity.)
 
 
 ### Many to many
@@ -381,7 +389,7 @@ tips to keep things tidy and free resources.
 To stop and erase all `KafkaDockerComposeEnv`-created Docker containers and
 networks, use the following commands:
 
-    $ docker rm -fv $(docker ps -f name=broker-test- -f name=zookeeper-test- -q)
+    $ docker rm -fv $(docker ps -aq -f name=broker-test- -f name=zookeeper-test-)
     $ docker network rm $(docker network ls -f name=kafkadockercomposeenv -q)
 
 
