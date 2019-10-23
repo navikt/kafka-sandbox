@@ -48,16 +48,12 @@ public class JsonMessageProducer<T> {
         this.nonBlockingSend = nonBlockingSend;
     }
 
-    private static KafkaProducer<String,String> initKafkaProducer(Map<String,Object> settings) {
-        return new KafkaProducer<>(settings);
-    }
-
     /**
      * Send as fast as the supplier can generate messages, until interrupted, then close producer
      */
     public void produceLoop() {
         log.info("Start producer loop");
-        final KafkaProducer<String,String> kafkaProducer = initKafkaProducer(kafkaSettings);
+        final KafkaProducer<String,String> kafkaProducer = new KafkaProducer<>(kafkaSettings);
         final SendStrategy<T> sendStrategy = nonBlockingSend ? nonBlocking(kafkaProducer) : blocking(kafkaProducer);
 
         while (!Thread.interrupted()) {

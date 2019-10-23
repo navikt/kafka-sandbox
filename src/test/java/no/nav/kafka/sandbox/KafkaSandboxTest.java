@@ -134,7 +134,7 @@ public class KafkaSandboxTest {
         try (KafkaConsumer<String,String> consumer = newConsumer("test-group")) {
             consumer.subscribe(Collections.singleton(testTopic));
             int pollCount = 0;
-            while (received.size() < messages.size() && pollCount++ < 5) {
+            while (received.size() < messages.size() && pollCount++ < 10) {
                 consumer.poll(Duration.ofSeconds(1)).forEach(cr -> {
                     received.add(cr.value());
                 });

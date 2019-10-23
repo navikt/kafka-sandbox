@@ -2,6 +2,7 @@ package no.nav.kafka.sandbox.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.*;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.InterruptException;
 import org.slf4j.Logger;
@@ -75,11 +76,17 @@ public class JsonMessageConsumer<T> {
                 ConsumerRecords<String, String> records = kafkaConsumer.poll(Duration.ofSeconds(10));
                 if (records.count() > 0) {
                     log.info("Total records count fetched: {}, partitions: {}", records.count(), records.partitions());
+
                     records.records(topic).forEach(this::handleRecord);
-                    kafkaConsumer.commitSync(); // Not needed if using auto-commit strategy, see Kafka consumer config
+
+                    // Could avoid commit if handler failed for one or more records here, then seek to start of
+                    // Not needed if using auto-commit strategy, see Kafka consumer config.
+                    kafkaConsumer.commitSync();
                 }
             } catch (InterruptException ie) { // Note: Kafka-specific interrupt exception
                 // Expected on shutdown from console
+            } catch (KafkaException ke) {
+                log.error("KafkaException occured in consumeLoop", ke);
             }
         }
         log.info("Closing KakfaConsumer ..");
@@ -89,7 +96,6 @@ public class JsonMessageConsumer<T> {
     private void handleRecord(ConsumerRecord<String,String> record) {
         try {
             T value = deserialize(record.value(), this.messageType);
-            log.info("Handle record with offset {}", record.offset());
             this.messageHandler.accept(value);
         } catch (Exception e) {
             log.error("Handle record with offset {}, failed to in message handler or deserialization: {}" , record.offset(), e.getMessage());

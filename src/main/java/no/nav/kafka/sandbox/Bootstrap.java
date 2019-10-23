@@ -14,10 +14,10 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.Console;
+import java.io.File;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -40,6 +40,7 @@ public class Bootstrap {
     final static String DEFAULT_BROKER = "localhost:9092";
     final static String MEASUREMENTS_TOPIC = "measurements";
     final static String MESSAGES_TOPIC = "messages";
+    final static String SEQUENCE_TOPIC = "sequence";
     final static String CONSUMER_GROUP_DEFAULT = "console";
 
     private static final Logger LOG = LoggerFactory.getLogger(Bootstrap.class);
@@ -50,9 +51,10 @@ public class Bootstrap {
         if (args.isEmpty() || args.get(0).isBlank() || "-h".equals(args.get(0)) || "--help".equals(args.get(0))) {
             System.err.println("Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'");
             System.err.println("Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'");
+            System.err.println("Use: 'sequence-producer [TOPIC [P]]' or 'sequence-consumer [TOPIC [GROUP]]'");
             System.err.println("Use: 'newtopic TOPIC [N]' to create a topic with N partitions (default 1).");
             System.err.println("Use: 'deltopic TOPIC' to delete a topic.");
-            System.err.println("Default topic is '"+ MEASUREMENTS_TOPIC + "' or '" + MESSAGES_TOPIC + "' according to chosen consumer/producer type.");
+            System.err.println("Default topic is chosen according to consumer/producer type.");
             System.err.println("Default consumer group is '"+ CONSUMER_GROUP_DEFAULT + "'");
             System.err.println("Kafka broker is " + DEFAULT_BROKER);
             System.exit(1);
@@ -74,6 +76,14 @@ public class Bootstrap {
 
                 case "consumer":
                     measurementConsumer(args);
+                    break;
+
+                case "sequence-producer":
+                    sequenceProducer(args);
+                    break;
+
+                case "sequence-consumer":
+                    sequenceValidatorConsumer(args);
                     break;
 
                 case "console-message-producer":
@@ -121,26 +131,36 @@ public class Bootstrap {
         producer(topic, partition, Bootstrap::acquireTemperatureSensorMeasurement, m -> m.getDeviceId());
     }
 
-    private static void consoleMessageProducer(Queue<String> args) {
-        String topic = args.isEmpty() ? MESSAGES_TOPIC : args.remove();
-        Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
-        producer(topic, partition, consoleMessageSupplier(), m -> m.senderId);
-    }
-
-    private static void consoleMessageConsumer(Queue<String> args) {
-        String topic = args.isEmpty() ? MESSAGES_TOPIC : args.remove();
-        String group = args.isEmpty() ? CONSUMER_GROUP_DEFAULT : args.remove();
-        consumer(topic, group, Message.class, m -> {
-            System.out.println(m.senderId + ": " + m.text);
-        });
-    }
-
     private static void measurementConsumer(Queue<String> args) {
         String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
         String group = args.isEmpty() ? CONSUMER_GROUP_DEFAULT : args.remove();
         consumer(topic, group, Measurement.class, m -> {
             System.out.println(m.toString());
         });
+    }
+
+    private static void consoleMessageProducer(Queue<String> args) {
+        String topic = args.isEmpty() ? MESSAGES_TOPIC : args.remove();
+        Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
+        producer(topic, partition, ConsoleMessages.consoleMessageSupplier(), m -> m.senderId);
+    }
+
+    private static void consoleMessageConsumer(Queue<String> args) {
+        String topic = args.isEmpty() ? MESSAGES_TOPIC : args.remove();
+        String group = args.isEmpty() ? CONSUMER_GROUP_DEFAULT : args.remove();
+        consumer(topic, group, ConsoleMessages.messageClass, ConsoleMessages.consoleMessageConsumer());
+    }
+
+    private static void sequenceProducer(Queue<String> args) {
+        String topic = args.isEmpty() ? SEQUENCE_TOPIC : args.remove();
+        Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
+        producer(topic, partition, SequenceValidation.sequenceSupplier(new File("target/sequence-producer.state"), 1, TimeUnit.SECONDS), m -> null);
+    }
+
+    private static void sequenceValidatorConsumer(Queue<String> args) {
+        String topic = args.isEmpty() ? SEQUENCE_TOPIC : args.remove();
+        String group = args.isEmpty() ? CONSUMER_GROUP_DEFAULT : args.remove();
+        consumer(topic, group, SequenceValidation.messageClass, SequenceValidation.sequenceValidator());
     }
 
     private static <M> void producer(String topic, Integer partition, Supplier<M> messageSupplier, Function<M, String> keyFunction) {
@@ -182,7 +202,9 @@ public class Bootstrap {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"); // In case no offset is stored, start at beginning
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"); // In case no offset is stored for consumer group, start at beginning
+        props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 300000);  // Max time allowed for message handling between calls to poll, default value
         return props;
     }
 
@@ -194,9 +216,12 @@ public class Bootstrap {
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, DEFAULT_BROKER);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        props.put(ProducerConfig.RETRIES_CONFIG, 0);
-        props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384); // value in bytes, 16384 is the default
-        props.put(ProducerConfig.ACKS_CONFIG, "1");         // Require ack from leader only, default
+        props.put(ProducerConfig.RETRIES_CONFIG, Integer.MAX_VALUE); // default is "infinite" number of retries, within the constraints of other related settings
+        props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 10000); // 10 seconds delivery timeout, default is 120 seconds
+        props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 10000);  // Request timeout, default is 30 seconds
+        props.put(ProducerConfig.LINGER_MS_CONFIG, 0);               // At default value of 0, affects batching of messages
+        props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);          // at default value of 16384 bytes
+        props.put(ProducerConfig.ACKS_CONFIG, "1");                  // Require ack from leader only, at default value
         return props;
 
         // More complex setup with authentication (currently beyond scope of this demo):
@@ -225,36 +250,7 @@ public class Bootstrap {
                 "temperature", "celcius", LocalDateTime.now(), temp);
     }
 
-    private static Supplier<Message> consoleMessageSupplier() {
-        final Console console = System.console();
-        if (console == null) {
-            throw new IllegalStateException("Unable to get system console");
-        }
-        final String senderId = "sender-" + obtainPid();
-        final AtomicBoolean first = new AtomicBoolean(true);
-        return () -> {
-            if (first.getAndSet(false)) {
-                console.writer().println("Send messages to Kafka, use CTRL+D to exit gracefully.");
-            }
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                return new Message("interrupted", senderId);
-            }
-            console.writer().print("Type message> ");
-            console.writer().flush();
-            String text = console.readLine();
-            if (text == null){
-                Thread.currentThread().interrupt();
-                return new Message("leaving", senderId);
-            } else {
-                return new Message(text, senderId);
-            }
-        };
-    }
-
-    private static long obtainPid() {
+    static long obtainPid() {
         return ProcessHandle.current().pid();
     }
 

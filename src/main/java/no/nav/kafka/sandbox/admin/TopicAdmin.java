@@ -12,7 +12,7 @@ public class TopicAdmin implements AutoCloseable {
     private final AdminClient adminClient;
 
     public TopicAdmin(String broker) {
-        this.adminClient = AdminClient.create(Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, broker));
+        adminClient = AdminClient.create(Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, broker));
     }
 
     /**
@@ -20,11 +20,11 @@ public class TopicAdmin implements AutoCloseable {
      * @param numPartitions
      */
     public void create(String topic, int numPartitions) throws Exception {
-        this.adminClient.createTopics(Collections.singleton(new NewTopic(topic, numPartitions, (short)1))).all().get();
+        adminClient.createTopics(Collections.singleton(new NewTopic(topic, numPartitions, (short)1))).all().get();
     }
 
     public void delete(String topic) throws Exception {
-        this.adminClient.deleteTopics(Collections.singleton(topic)).all().get();
+        adminClient.deleteTopics(Collections.singleton(topic)).all().get();
     }
 
     @Override

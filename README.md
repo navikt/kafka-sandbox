@@ -68,12 +68,13 @@ To get started:
     $ chmod +x run.sh
     $ ./run.sh --help
     Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'
+    Use: 'sequence-producer [TOPIC [P]]' or 'sequence-consumer [TOPIC [GROUP]]'
     Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'
     Use: 'newtopic TOPIC [N]' to create a topic with N partitions (default 1).
     Use: 'deltopic TOPIC' to delete a topic.
-    Default topic is 'measurements' or 'messages' according to chosen producer/consumer type.
-    Default consumer group is 'console'.
-    Kafka broker is expected to be running at localhost:9092
+    Default topic is chosen according to consumer/producer type.
+    Default consumer group is 'console'
+    Kafka broker is localhost:9092
 
 (The run script will trigger a Maven build if no JAR file exists in `target/`.)
 
@@ -82,6 +83,13 @@ they can exchange. The default 'producer' creates synthentic "temperature
 measurement" events automatically after starting up, hence the naming of the
 corresponding default Kafka topic. The default 'consumer' is able to read these
 messages and display them as console output.
+
+The 'sequence-producer' creates records with an ever increasing sequence number.
+The corresponding consumer does a simple validation of received messages,
+checking that the received sequence number is the expected one. This can be used
+to detect if messages are lost or reordered in various situations. The consumer
+keeps an account of the number of errors detected and writes status to stdout
+upon message reception.
 
 The 'console-message-producer' is an interactive producer that reads messages
 you type on the command line and ships them off to a Kafka topic. The
@@ -332,6 +340,57 @@ Useful URLs for Kafka configuration docs:
 http://kafka.apache.org/documentation.html#consumerconfigs
 
 http://kafka.apache.org/documentation.html#producerconfigs
+
+### Error handling: detecting message loss with sequence-producer/consumer
+
+The 'sequence-producer' and corresponding 'sequence-consumer' commands can be
+used for simple detection of message loss or reordering. The producer will send
+messages containing an ever increasing sequence number, and the consumer
+validates that the messages it receives have the expected next number in the
+sequence. When validation fails it logs errors and increase an error counter, so
+that it is easy to spot.
+
+Start the producer:
+
+    $ ./run.sh sequence-producer
+    
+It will start at sequence number 0. If you restart, it will continue from where
+was last stopped, since the next sequence number is persisted to a temporary
+file. (To reset this, stop the sequence-producer and remove the file
+`target/sequence-producer.state`.)
+
+Now start the corresponding consumer:
+
+    $ ./run.sh sequence-consumer
+    
+It will read the sequence numbers already on the topic and log its state upon
+every message reception. You should see that the sequence is "in sync" and that
+the error count is 0.
+
+While they are running, restart the Kafka broker:
+
+    $ docker-compose restart broker
+    
+You should see the producer keeps sending messages, but does not receive
+acknowledgements. Eventually it will log errors about expired messages. The
+consumer may also start logging errors about connectivity, depending on how long
+the broker is down, which depends on how fast the host machine is. (If the
+broker restart is too quick to cause any errors, use "stop/start" instead, and
+wait a little while before starting.)
+
+Normally, with the current code in kafka-sandbox, you can observe that some
+messages are lost in this process, and the consumer increases the error count
+due to receiving an unexpected sequence number.
+
+There is a challenge here: modify the kafka-sandbox code or config make it more
+resilient. Ensure that no sequence messages are lost if Kafka stops responding
+for about 60 seconds, for whatever reason. Test by re-running the procedure
+described in this section. (Hint: see the various producer timeout config
+parameters.)
+
+To only display output related to the sequence number producer/consumer, you can
+pipe the output of the start commands to `...|grep SEQ`, which will filter out
+the other log messages.
 
 
 ### Error handling: consumer dies
