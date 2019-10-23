@@ -1,6 +1,6 @@
 # A basic Kafka sandbox/demo app using official Java client libraries
 
-.. and with a minimal set of dependencies.
+.. with a minimal set of dependencies.
 
 ## Purpose
 
@@ -347,8 +347,8 @@ The 'sequence-producer' and corresponding 'sequence-consumer' commands can be
 used for simple detection of message loss or reordering. The producer will send
 messages containing an ever increasing sequence number, and the consumer
 validates that the messages it receives have the expected next number in the
-sequence. When validation fails it logs errors and increase an error counter, so
-that it is easy to spot.
+sequence. When validation fails it logs errors and increases an error counter,
+so that it is easy to spot.
 
 Start the producer:
 
