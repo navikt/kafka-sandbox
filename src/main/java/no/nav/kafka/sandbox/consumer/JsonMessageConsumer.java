@@ -82,6 +82,9 @@ public class JsonMessageConsumer<T> {
                     // Could avoid commit if handler failed for one or more records here, then seek to start of
                     // Not needed if using auto-commit strategy, see Kafka consumer config.
                     kafkaConsumer.commitSync();
+                    records.partitions().forEach(tp -> {
+                        log.info("Committed offset {} for {}", kafkaConsumer.committed(tp).offset(), tp);
+                    });
                 }
             } catch (InterruptException ie) { // Note: Kafka-specific interrupt exception
                 // Expected on shutdown from console
@@ -89,7 +92,7 @@ public class JsonMessageConsumer<T> {
                 log.error("KafkaException occured in consumeLoop", ke);
             }
         }
-        log.info("Closing KakfaConsumer ..");
+        log.info("Closing KafkaConsumer ..");
         kafkaConsumer.close();
     }
 

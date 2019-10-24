@@ -1,5 +1,6 @@
 package no.nav.kafka.sandbox;
 
+import no.nav.kafka.sandbox.ConsoleMessages.Message;
 import no.nav.kafka.sandbox.consumer.JsonMessageConsumer;
 import no.nav.kafka.sandbox.producer.JsonMessageProducer;
 import org.apache.kafka.clients.admin.AdminClient;

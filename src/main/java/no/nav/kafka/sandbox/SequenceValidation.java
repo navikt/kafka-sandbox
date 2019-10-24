@@ -13,9 +13,7 @@ import java.util.function.Supplier;
  *
  * <p>The supplier maintains state on disk wrt. next sequence number. Delete the persistence file to reset state.</p>
  */
-class SequenceValidation {
-
-    static Class<Long> messageClass = Long.class;
+public class SequenceValidation {
 
     static Supplier<Long> sequenceSupplier(File persistence, long delay, TimeUnit timeUnit) {
         return new SequenceSupplier(persistence, delay, timeUnit);
@@ -81,7 +79,7 @@ class SequenceValidation {
                 expect = -1;
             } else if  (received > expect){
                 ++errorCount;
-                toConsole("[SEQ] ERROR: Received higher sequence than expected received(%d) > expect(%d), resync next, errors(%d)",
+                toConsole("[SEQ] ERROR: Received higher sequence than expected: received(%d) > expect(%d), resync next, errors(%d)",
                         received, expect, errorCount);
                 expect = -1;
             } else {

@@ -1,6 +1,6 @@
 # A basic Kafka sandbox/demo app using official Java client libraries
 
-.. with a minimal set of dependencies.
+.. with a minimal set of dependencies. No Springs attached.
 
 ## Purpose
 
@@ -20,6 +20,7 @@
 - [Maven][2] 3.6.X (must be able to handle modular Java project)
 - A working [Docker][3] installation on localhost ([Docker for Windows][4] is fine), and
   [docker-compose][5].
+- A unix-like shell is handy, but not a strict requirement.
 
 [1]: https://adoptopenjdk.net/
 [2]: https://maven.apache.org/download.cgi
@@ -97,8 +98,14 @@ you type on the command line and ships them off to a Kafka topic. The
 console output. These can be used to get a more controlled message production
 where sending is driven by user input.
 
-The commands 'newtopic' and 'deltopic' allows simple administration of Kafka
+The commands 'newtopic' and 'deltopic' allow simple administration of Kafka
 topics for testing purposes.
+
+### Running directly from IntelliJ
+
+You can create run configurations in IntelliJ for all the examples, by starting
+the `no.nav.kafka.sandbox.Bootstrap` class with the arguments. So a shell is not
+strictly required.
 
 
 ## Communication patterns with Kafka
@@ -139,9 +146,13 @@ concept is important to understand:
    group assigned to a single topic-partition at any given time.
 3. Consumed partition offsets for a topic is stored per *consumer group*. In
    other words, Kafka stores the progress on a *per consumer group* basis, for a
-   particular topic and its partitions.
+   particular topic and its partitions. (Consumer clients are responsible for
+   comitting the progress back to Kafka.)
 4. When a new consumer group name is established, the consumers which are part
-   of that group will typically start "at the beginning" of the topic.
+   of that group will typically start receiving only new messages sent to the
+   topic. This is however configurable, and the consumers in kafka-sandbox are
+   by default setup to start at the very beginning of a topic, if Kafka has no
+   stored offset data for the group to begin with.
 5. When the constellation of consumers in the same consumer group connected to a
    topic changes, Kafka will rebalance the consumers and possibly reassign
    partitions within the group.
@@ -188,9 +199,9 @@ processed by any number of different consumer groups.
 Initialize a new topic with 1 partition and start a producer:
 
     $ ./run.sh newtopic one_to_many 1
-    [...]
+
     $ ./run.sh producer one_to_many
-    [...]
+
     
 And fire up as many consumers as desired in new terminal windows, but increment
 the group number N for each one:
@@ -265,12 +276,43 @@ consumers are started in several active consumer groups. In that case, all the
 messages produced will be handled in parallel by several different groups (but
 only once per group).
 
+
 ### Consumer group rebalancing
 
 You will notice log messages from the consumers whenever a consumer group
 rebalancing occurs. This typically happens when a consumer leaves or a new
 consumer arrives. It will provide insight into how Kafka distributes messages
 amongst consumers in a group.
+
+
+### Many to one
+
+This example demonstrates a many-to-one case, where there are lots of producers
+collecting "temperature sensor events" and sending it to a common topic, while a
+single consumer is responsible for processing the messages.
+
+Start a single consumer for topic 'manydevices':
+
+    $ ./run.sh consumer manydevices
+
+Start 10 producers by executing the following command 10 times:
+
+    $ ./run.sh producer manydevices 1>/dev/null 2>&1 &
+    [x10..]
+    
+The producers will be started in the background by the shell and the output is
+hidden. (You can examine running background jobs with the command `jobs`.)
+
+After a short while, you should see the consumer receiving and processing
+messages from many different producers ("sensor devices"). Depending on the
+number of running producers, you may see the consumer receiving multiple records
+per poll call to Kafka. This is simply due to the increased rate of messages
+being written to the topic.
+
+To kill all producers running in the background, execute command:
+
+    $ kill $(jobs -p)
+
 
 ### Error handling in general
 
@@ -332,7 +374,7 @@ consumers once they are able to reconnect to the broker.
 
 Behaviour can be adjusted by the many config options that the Kafka clients
 support. You can experiment and modify config by editing the code in
-`no.nav.kafka.sandbox.Bootstrap`, see `#kafkaProducerProps()` and
+`no.nav.kafka.sandbox.KafkaConfig`, see `#kafkaProducerProps()` and
 `#kafkaConsumerProps(String)`.
 
 Useful URLs for Kafka configuration docs:

@@ -1,16 +1,31 @@
 package no.nav.kafka.sandbox;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.io.Console;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-class ConsoleMessages {
+public class ConsoleMessages {
 
-    static Class<Message> messageClass = Message.class;
+    public static class Message {
+        @JsonProperty
+        public final String text;
+        @JsonProperty
+        public final String senderId;
+
+        @JsonCreator
+        public Message(@JsonProperty("text") String text,
+                       @JsonProperty("senderId") String id) {
+            this.text = text;
+            this.senderId = id;
+        }
+    }
 
     static Consumer<Message> consoleMessageConsumer() {
-        return (m) -> {
+        return m -> {
             System.out.println(m.senderId + ": " + m.text);
         };
     }
@@ -43,4 +58,5 @@ class ConsoleMessages {
             }
         };
     }
+
 }

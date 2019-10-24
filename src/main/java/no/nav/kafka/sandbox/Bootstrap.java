@@ -7,16 +7,14 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import no.nav.kafka.sandbox.admin.TopicAdmin;
 import no.nav.kafka.sandbox.consumer.JsonMessageConsumer;
 import no.nav.kafka.sandbox.producer.JsonMessageProducer;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.NoSuchElementException;
+import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -128,15 +126,13 @@ public class Bootstrap {
     private static void measurementProducer(Queue<String> args) {
         String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
         Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
-        producer(topic, partition, Bootstrap::acquireTemperatureSensorMeasurement, m -> m.getDeviceId());
+        producer(topic, partition, Measurements::acquireTemperatureSensorMeasurement, m -> m.getDeviceId());
     }
 
     private static void measurementConsumer(Queue<String> args) {
         String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
         String group = args.isEmpty() ? CONSUMER_GROUP_DEFAULT : args.remove();
-        consumer(topic, group, Measurement.class, m -> {
-            System.out.println(m.toString());
-        });
+        consumer(topic, group, Measurements.SensorEvent.class, Measurements::sensorEventToConsole);
     }
 
     private static void consoleMessageProducer(Queue<String> args) {
@@ -148,24 +144,25 @@ public class Bootstrap {
     private static void consoleMessageConsumer(Queue<String> args) {
         String topic = args.isEmpty() ? MESSAGES_TOPIC : args.remove();
         String group = args.isEmpty() ? CONSUMER_GROUP_DEFAULT : args.remove();
-        consumer(topic, group, ConsoleMessages.messageClass, ConsoleMessages.consoleMessageConsumer());
+        consumer(topic, group, ConsoleMessages.Message.class, ConsoleMessages.consoleMessageConsumer());
     }
 
     private static void sequenceProducer(Queue<String> args) {
         String topic = args.isEmpty() ? SEQUENCE_TOPIC : args.remove();
         Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
-        producer(topic, partition, SequenceValidation.sequenceSupplier(new File("target/sequence-producer.state"), 1, TimeUnit.SECONDS), m -> null);
+        producer(topic, partition, SequenceValidation.sequenceSupplier(
+                new File("target/sequence-producer.state"), 1, TimeUnit.SECONDS), m -> null);
     }
 
     private static void sequenceValidatorConsumer(Queue<String> args) {
         String topic = args.isEmpty() ? SEQUENCE_TOPIC : args.remove();
         String group = args.isEmpty() ? CONSUMER_GROUP_DEFAULT : args.remove();
-        consumer(topic, group, SequenceValidation.messageClass, SequenceValidation.sequenceValidator());
+        consumer(topic, group, Long.class, SequenceValidation.sequenceValidator());
     }
 
     private static <M> void producer(String topic, Integer partition, Supplier<M> messageSupplier, Function<M, String> keyFunction) {
         LOG.info("New producer with PID " + obtainPid());
-        JsonMessageProducer<M> producer = new JsonMessageProducer<>(topic, partition, kafkaProducerProps(), objectMapper(),
+        JsonMessageProducer<M> producer = new JsonMessageProducer<>(topic, partition, KafkaConfig.kafkaProducerProps(), objectMapper(),
                 messageSupplier, keyFunction, true);
 
         Thread main = Thread.currentThread();
@@ -180,7 +177,7 @@ public class Bootstrap {
     private static <M> void consumer(String topic, String group, Class<M> messageType, Consumer<M> messageHandler) {
         LOG.info("New consumer with PID " + obtainPid());
         JsonMessageConsumer<M> consumer =
-                new JsonMessageConsumer(topic, messageType, kafkaConsumerProps(group),
+                new JsonMessageConsumer(topic, messageType, KafkaConfig.kafkaConsumerProps(group),
                         objectMapper(), messageHandler);
         Thread main = Thread.currentThread();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -191,63 +188,6 @@ public class Bootstrap {
         }));
 
         consumer.consumeLoop();
-    }
-
-    /**
-     * See <a href="http://kafka.apache.org/documentation.html#consumerconfigs">Consumer configs</a>
-     */
-    private static Map<String,Object> kafkaConsumerProps(String groupId) {
-        var props = new HashMap<String,Object>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, DEFAULT_BROKER);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest"); // In case no offset is stored for consumer group, start at beginning
-        props.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 300000);  // Max time allowed for message handling between calls to poll, default value
-        return props;
-    }
-
-    /**
-     * See <a href="http://kafka.apache.org/documentation.html#producerconfigs">Producer configs</a>
-     */
-    private static Map<String,Object> kafkaProducerProps() {
-        var props = new HashMap<String,Object>();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, DEFAULT_BROKER);
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        props.put(ProducerConfig.RETRIES_CONFIG, Integer.MAX_VALUE); // default is "infinite" number of retries, within the constraints of other related settings
-        props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 10000); // 10 seconds delivery timeout, default is 120 seconds
-        props.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 10000);  // Request timeout, default is 30 seconds
-        props.put(ProducerConfig.LINGER_MS_CONFIG, 0);               // At default value of 0, affects batching of messages
-        props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);          // at default value of 16384 bytes
-        props.put(ProducerConfig.ACKS_CONFIG, "1");                  // Require ack from leader only, at default value
-        return props;
-
-        // More complex setup with authentication (currently beyond scope of this demo):
-//        props.put("ssl.endpoint.identification.algorithm", "https");
-//        props.put("sasl.mechanism", "PLAIN");
-//        props.put("request.timeout.ms", 5000);
-//        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "pkc-43mml.europe-west2.gcp.confluent.cloud:9092");
-//        props.put("sasl.jaas.config","org.apache.kafka.common.security.plain.PlainLoginModule required username=\"<SomeUser>\" password=\"<SomePass\>";");
-//        props.put("security.protocol","SASL_SSL");
-//        props.put("basic.auth.credentials.source","USER_INFO");
-//        props.put("schema.registry.basic.auth.user.info", "api-key:api-secret");
-//        props.put("schema.registry.url", "<schema-registry-url>");
-//        props.put(ProducerConfig.CLIENT_ID_CONFIG, "no.nav.kafka.sandbox");
-    }
-
-    // Produces one synthentic temp event every 1-2 seconds
-    private static Measurement acquireTemperatureSensorMeasurement() {
-        // Throttling and some variance in timing
-        try {
-            Thread.sleep((long) (Math.random() * 1000) + 1000);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-        }
-        final int temp = (int)(Math.random()*20 + 19);
-        return new Measurement("sensor-" + obtainPid(),
-                "temperature", "celcius", LocalDateTime.now(), temp);
     }
 
     static long obtainPid() {
