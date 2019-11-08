@@ -30,11 +30,11 @@ import java.util.function.Supplier;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Demonstrates use of {@link KafkaDockerComposeEnv}, and a few simple tests using the running Kafka instance.
+ * Demonstrates use of {@link DockerComposeEnv}, and a few simple tests using a running Kafka instance.
  */
 public class KafkaSandboxTest {
 
-    private static KafkaDockerComposeEnv dockerComposeEnv;
+    private static DockerComposeEnv dockerComposeEnv;
 
     private static AdminClient adminClient;
 
@@ -53,10 +53,15 @@ public class KafkaSandboxTest {
 
     @BeforeAll
     public static void dockerComposeUp() throws Exception {
-        Assumptions.assumeTrue(KafkaDockerComposeEnv.dockerComposeAvailable(),
+        Assumptions.assumeTrue(DockerComposeEnv.dockerComposeAvailable(),
                 "This test needs a working 'docker-compose' command");
 
-        dockerComposeEnv = KafkaDockerComposeEnv.up();
+        dockerComposeEnv = DockerComposeEnv.builder("src/test/resources/KafkaDockerComposeEnv.yml")
+                .addAutoPortVariable("KAFKA_PORT")
+                .dockerComposeLogDir("target/")
+                .readyWhenPortIsOpen("localhost", "KAFKA_PORT")
+                .up();
+
         adminClient = newAdminClient();
     }
 
@@ -66,6 +71,10 @@ public class KafkaSandboxTest {
             adminClient.close();
             dockerComposeEnv.down();
         }
+    }
+
+    static int kafkaPort() {
+        return Integer.parseInt(dockerComposeEnv.getEnvVariable("KAFKA_PORT"));
     }
 
     @BeforeEach
@@ -159,7 +168,7 @@ public class KafkaSandboxTest {
 
         final ExecutorService executor = Executors.newFixedThreadPool(2);
 
-        final var producer = new JsonMessageProducer<Message>(testTopic, null, kafkaProducerTestConfig(dockerComposeEnv.kafkaPort),
+        final var producer = new JsonMessageProducer<Message>(testTopic, null, kafkaProducerTestConfig(kafkaPort()),
                 Bootstrap.objectMapper(), supplier , m -> null, true);
         final Future<?> producerLoop = executor.submit(producer::produceLoop);
 
@@ -170,7 +179,7 @@ public class KafkaSandboxTest {
         final BlockingQueue<Message> inbox = new ArrayBlockingQueue<>(1);
         final var consumer = new JsonMessageConsumer<Message>(testTopic,
                 Message.class,
-                kafkaConsumerTestConfig(dockerComposeEnv.kafkaPort, "testGroup"),
+                kafkaConsumerTestConfig(kafkaPort(), "testGroup"),
                 Bootstrap.objectMapper(), m -> inbox.offer(m) );
         final Future<?> consumeLoop = executor.submit(consumer::consumeLoop);
 
@@ -184,15 +193,15 @@ public class KafkaSandboxTest {
     }
 
     private static AdminClient newAdminClient() {
-        return AdminClient.create(Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:"+ dockerComposeEnv.kafkaPort));
+        return AdminClient.create(Map.of(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:"+ kafkaPort()));
     }
 
     private static KafkaConsumer<String,String> newConsumer(String group) {
-        return new KafkaConsumer<>(kafkaConsumerTestConfig(dockerComposeEnv.kafkaPort, group));
+        return new KafkaConsumer<>(kafkaConsumerTestConfig(kafkaPort(), group));
     }
 
     private static KafkaProducer<String,String> newProducer() {
-        return new KafkaProducer<>(kafkaProducerTestConfig(dockerComposeEnv.kafkaPort));
+        return new KafkaProducer<>(kafkaProducerTestConfig(kafkaPort()));
     }
 
     private static Map<String,Object> kafkaConsumerTestConfig(int kafkaPort, String consumerGroup) {
