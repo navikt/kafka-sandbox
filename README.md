@@ -469,15 +469,17 @@ you can set the log level of the Apache Kafka clients in the file
 `INFO` will output much more information.
 
 
-## Unit/integration tests with `DockerComposeKafkaEnv`
+## Unit/integration tests with `DockerComposeEnv`
 
-The class `DockerComposeKafkaEnv` can be used to manage a temporary Kafka
-environment for unit tests. It makes it simple to bring Kafka up/down between
-tests and handles port assignments and other boring details automatically. It
-also ensures that the Docker resources have unique names that should not
-conflict with other containers. It requires the `docker-compose` command to
-function, but has no other dependencies. Its configuration is stored in
-`src/test/resources/DockerComposeKafkaEnv.yml`.
+The class `DockerComposeEnv` can be used to manage a temporary docker-compose
+environment for unit tests. It makes it simple to bring up/down
+docker-compose-configurations between tests and handles port assignments and
+other boring details automatically. It also ensures that the Docker resources
+have unique names that should not conflict with other containers. It requires
+the `docker-compose` command to function, but has no other dependencies. A basic
+Kafka docker-compose configuration is stored in
+`src/test/resources/DockerComposeKafkaEnv.yml`, which is used by
+`KafkaSandboxTest`.
 
 See example of usage in `KafkaSandboxTest`.
 
