@@ -249,8 +249,9 @@ public final class DockerComposeEnv implements AutoCloseable {
     }
 
     /**
-     * Factory for constructing a new instance and bring up local Kafka broker using
-     * <p>Kafka port can be access by looking at {@link DockerComposeEnv#kafkaPort}</p>
+     * Factory for constructing a new docker-compose test environment.
+     * <p>Waits for all configured ready-tests to complete before returning.</p>
+     *
      * @return the new instance
      * @throws Exception in case something goes awry during setup.
      */
