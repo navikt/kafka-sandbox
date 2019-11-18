@@ -5,8 +5,6 @@ services:
     hostname: zookeeper
     container_name: zookeeper-test-${KAFKA_PORT}
     image: confluentinc/cp-zookeeper:latest
-    ports:
-      - "2181"
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -22,7 +20,6 @@ services:
     container_name: broker-test-${KAFKA_PORT}
     ports:
       - "${KAFKA_PORT:-9092}:${KAFKA_PORT:-9092}"
-      - "29092"
     depends_on:
       - zookeeper
     environment:
