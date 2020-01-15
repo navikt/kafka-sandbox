@@ -353,8 +353,8 @@ public final class DockerComposeEnv implements AutoCloseable {
     }
 
     private static String findDockerComposeExecutableName() {
-        for (String executable : List.of("docker-compose.exe", "docker-compose",
-                                         "/usr/bin/docker-compose", "/usr/local/bin/docker-compose")) {
+        for (String executable : List.of("/usr/bin/docker-compose", "/usr/local/bin/docker-compose", "/usr/local/sbin/docker-compose",
+                "docker-compose", "docker-compose.exe")) {
             try {
                 if (new ProcessBuilder(executable, "--version").start().onExit().get().exitValue() == 0) {
                     return executable;
