@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 import static java.lang.ProcessBuilder.Redirect.appendTo;
 
 /**
- * Support class for invocting docker-compose and waiting for services, typically to be used in tests.
+ * Support class for invoking docker-compose and waiting for services, typically to be used in tests.
  */
 public final class DockerComposeEnv implements AutoCloseable {
 
