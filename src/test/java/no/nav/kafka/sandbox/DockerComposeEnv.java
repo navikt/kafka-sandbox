@@ -39,6 +39,7 @@ public final class DockerComposeEnv implements AutoCloseable {
         private final Map<String,String> env = new HashMap<>();
         private final List<Supplier<Boolean>> readyTests = new ArrayList<>();
         private int lastAutoPort = 39999;
+        private int dockerComposeTimeoutSeconds = 1800;
 
         private Builder(String config) {
             this.config = Objects.requireNonNull(config);
@@ -207,6 +208,17 @@ public final class DockerComposeEnv implements AutoCloseable {
         }
 
         /**
+         * Set wait limit in seconds for docker-compose to finish bringing up containers. This time may involve
+         * Docker downloading images from the internet, take that into account.
+         * <p>Default value: {@code 1800} seconds</p>
+         * @return this builder
+         */
+        public Builder dockerComposeTimeout(int timeoutSeconds) {
+            this.dockerComposeTimeoutSeconds = timeoutSeconds;
+            return this;
+        }
+
+        /**
          * Bring up configured env. This call will block for some amount of time to invoke docker-compose, and then
          * to wait using any set ready-test.
          * @return a hopefully ready-to-use docker-compose environment
@@ -215,7 +227,7 @@ public final class DockerComposeEnv implements AutoCloseable {
             if (readyTests.isEmpty()) {
                 readyAfter(5, TimeUnit.SECONDS);
             }
-            return new DockerComposeEnv(this.config, this.logdir, this.env, this.readyTests).up();
+            return new DockerComposeEnv(this.config, this.dockerComposeTimeoutSeconds, this.logdir, this.env, this.readyTests).up();
         }
     }
 
@@ -230,10 +242,11 @@ public final class DockerComposeEnv implements AutoCloseable {
 
     private final Path dockerComposeLogDir;
     private final String configFile;
+    private final long timeoutSeconds;
     private final Map<String,String> env;
     private final List<Supplier<Boolean>> readyTests;
 
-    private DockerComposeEnv(String configFile, String logdir, Map<String,String> env, List<Supplier<Boolean>> readyTests) {
+    private DockerComposeEnv(String configFile, long timeoutSeconds, String logdir, Map<String,String> env, List<Supplier<Boolean>> readyTests) {
         if (logdir != null) {
             File dir = new File(logdir);
             if (!dir.isDirectory() || !dir.canWrite()) {
@@ -244,6 +257,7 @@ public final class DockerComposeEnv implements AutoCloseable {
             this.dockerComposeLogDir = null;
         }
         this.configFile = configFile;
+        this.timeoutSeconds = timeoutSeconds;
         this.env = env;
         this.readyTests = readyTests;
     }
@@ -256,12 +270,12 @@ public final class DockerComposeEnv implements AutoCloseable {
      * @throws Exception in case something goes awry during setup.
      */
     private DockerComposeEnv up() throws Exception {
-        log.info("Bringing up local docker-compose environment, env={}", this.env);
+        log.info("Bringing up local docker-compose environment, max wait={} seconds, env={}", this.timeoutSeconds, this.env);
         dockerCompose("up", "-d").start().onExit().thenAccept(process -> {
                     if (process.exitValue() != 0) {
                         throw new RuntimeException("docker-compose failed with status " + process.exitValue());
                     }
-                }).get(100, TimeUnit.SECONDS);
+                }).get(this.timeoutSeconds, TimeUnit.SECONDS);
 
         log.info("Waiting for {} ready-test(s) to complete ..", readyTests.size());
         List<CompletableFuture<Void>> allReadyTestsComplete = readyTests.stream().map(
@@ -283,7 +297,7 @@ public final class DockerComposeEnv implements AutoCloseable {
         try {
             CompletableFuture.allOf(allReadyTestsComplete.toArray(new CompletableFuture[]{}))
                     .thenRun(() -> log.info("All ready-tests completed."))
-                    .get(100, TimeUnit.SECONDS);
+                    .get(240, TimeUnit.SECONDS);
         } catch (Exception e) {
             log.error("At least one ready-test failed, or we timed out while waiting", e);
             down();
