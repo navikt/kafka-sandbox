@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+# Simple topic-tail tool which demonstrates usage of kafkacat.
+# Only for display of record metadata. Formats timetamps in human readable form.
+# By default tails the topic, showing only the N latest records.
+
+VERSION = '0.1'
+
+import subprocess
+import sys
+import shutil
+import os
+from datetime import datetime
+import re
+
+def check_kafkacat():
+    if not shutil.which('kafkacat'):
+        sys.stderr.write('Error: missing "kafkacat" command in system PATH\n')
+        sys.exit(255)
+
+def iso_from_ts(ts_epoch_millis):
+    return datetime.fromtimestamp(int(ts_epoch_millis)/1000).isoformat(timespec='milliseconds')
+
+def kafkacat_tail(broker, topic, n, follow):
+    check_kafkacat()
+
+    with subprocess.Popen(['kafkacat', '-C', '-b', broker, '-t', topic, '-Z', '-u',
+                           '-f', '%t\t%p\t%k\t%S\t%T\t%o\n'] + (['-e'] if not follow else []),
+                          env={**os.environ.copy(), 'LC_MESSAGES':'C.UTF-8'},
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                          universal_newlines=True) as kcproc:
+
+        buf = []
+        endpattern = re.compile(r'^% Reached end.*at offset (\d+)[^\d]*.*')
+        end_offset = -1
+        for line in kcproc.stdout:
+            if line.find('% ERROR') == 0:
+                sys.stderr.write(line)
+                sys.exit(1)
+
+            is_end_message = endpattern.match(line)
+            if is_end_message:
+                end_offset = int(is_end_message.group(1))
+            else:
+                t, p, k, sz, ts, o = line.strip('\n').split('\t', 5)
+                buf.append('[{}-{}] key {}, sz {:>5}, ts {}, offset {}'.format(t, p, k, sz, iso_from_ts(ts), o))
+                if n > -1 and len(buf) > n:
+                    buf = buf[len(buf)-n:]
+
+            if n < 0 or end_offset > -1:
+                for msg in buf: print(msg)
+                buf = []
+
+if __name__ == '__main__':
+
+    import argparse
+    parser = argparse.ArgumentParser(
+        description='Simple "tail" for Kafka topic records metadata. Keys are displayed as part of metadata and cannot be binary. Values are not displayed at all by this tool. Requires "kafkacat" command in PATH.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-b', '--broker', type=str,
+                        default='localhost:9092', help='Kafka broker <host>:<port>')
+    parser.add_argument('-f', '--follow', action='store_true', default=False,
+                        help='Keep following topic after reaching end (use CTRL+C to exit).')
+    parser.add_argument('-n', type=int, help='Tail last N records from topic, or use negative number to start at beginning', default=10)
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s '+VERSION)
+    parser.add_argument('topic', metavar='TOPIC', type=str)
+    args = parser.parse_args()
+    
+    kafkacat_tail(args.broker, args.topic, args.n, args.follow)

@@ -506,6 +506,10 @@ A typical installation on Ubuntu Linux can be accomplished with:
 
     $ sudo apt install kafkacat
 
+A tool which demonstrates use of kafkacat is included in the source code of this
+repository. It can be found `src/tools/topic-tail` and is a "tail"-like command
+to show metadata for the latest records on a Kafka topic. It requires Python
+3.5+.
 
 ## Using official Kafka command line tools
 
