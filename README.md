@@ -69,7 +69,7 @@ line clients and contains various messages types and handling of them.
 The build process is boring and very standard, but does test that Docker and
 docker-compose works on your host:
 
-    $ mvn install
+    mvn install
     
 If all goes well, an executable über-jar is built in
 `clients/target/clients-<version>.jar` for the basic Java clients. The automated
@@ -88,7 +88,7 @@ command line clients or Spring boot application of kafka-sandbox, all you need
 to do is run the following in a dedicated terminal with current directory being
 the kafka-sandbox project directory:
 
-    $ docker-compose up
+    docker-compose up
 
 ### Running the kafka-sandbox command line clients
 
@@ -153,7 +153,7 @@ We will use the default topic with a single partition:
 
 *In terminal 1:*
 
-    $ ./clients.sh producer
+    ./clients.sh producer
 
 The producer will immediately start sending messages to the Kafka topic
 'measurements'. Since this default topic only has one partition, the exact place
@@ -162,7 +162,7 @@ partition 0 for the topic.
 
 *In terminal 2:*
 
-    $ ./clients.sh consumer
+    ./clients.sh consumer
     
 The consumer will connect to Kafka and starting polling for messages. It will
 display the messages in the console as they arrive. The consumer subscribes to
@@ -197,7 +197,7 @@ To observe what happens when a consumer disconnects and reconnects to the same t
    because the consumer group offset is stored server side.
 3. Kill the consumer again, and restart with a different (new) consumer group:
 
-        $ ./clients.sh consumer measurements othergroup
+        ./clients.sh consumer measurements othergroup
         
    Notice how it now starts displaying messages from the very beginning of the
    topic (offset 0). This is because no previous offset has been stored for the
@@ -207,7 +207,7 @@ To observe what happens when a consumer disconnects and reconnects to the same t
 What happens when a second consumer joins ? Start a second consumer in a new
 terminal window:
 
-        $ ./clients.sh consumer measurements othergroup
+        ./clients.sh consumer measurements othergroup
         
 You will now notice that one of the two running consumers will stop receiving
 messages, and in that case the following message will appear:
@@ -229,15 +229,15 @@ processed by any number of different consumer groups.
 
 Initialize a new topic with 1 partition and start a producer:
 
-    $ ./clients.sh newtopic one_to_many 1
+    ./clients.sh newtopic one_to_many 1
 
-    $ ./clients.sh producer one_to_many
+    ./clients.sh producer one_to_many
 
     
 And fire up as many consumers as desired in new terminal windows, but increment
 the group number N for each one:
 
-    $ ./clients.sh consumer one_to_many group-N
+    ./clients.sh consumer one_to_many group-N
     
 You will notice that all the consumer instances report the same messages and
 offsets after a short while. Because they are all in different consumer groups,
@@ -250,15 +250,15 @@ processed by any consumer in a consumer group.
 
 Create a topic with 3 partitions:
 
-    $ ./clients.sh newtopic any_once 3
+    ./clients.sh newtopic any_once 3
     
 Start three producers in three terminals, one for each partition:
 
-    $ ./clients.sh producer any_once 0
+    ./clients.sh producer any_once 0
 
-    $ ./clients.sh producer any_once 1
+    ./clients.sh producer any_once 1
 
-    $ ./clients.sh producer any_once 2
+    ./clients.sh producer any_once 2
 
 Here we are explicitly specifying which partition each producer should write to,
 so that we ensure an even distribution of messages for the purpose of this
@@ -274,14 +274,14 @@ Next, we are going to start consumer processes.
 
 Begin with a single consumer:
 
-    $ ./clients.sh consumer any_once group
+    ./clients.sh consumer any_once group
     
 You will notice that this first consumer gets assigned all three partitions on
 the topic and starts displaying received messages.
 
 Let's scale up to another consumer. Run in a new terminal:
 
-    $ ./clients.sh consumer any_once group
+    ./clients.sh consumer any_once group
 
 When this consumer joins, you can see rebalancing messages, and it will be
 assigned one or two partitions from the topic, while the first is removed from
@@ -290,7 +290,7 @@ running consumers.
 
 Scale further by starting a third consumer in a new terminal:
 
-    $ ./clients.sh consumer any_once group
+    ./clients.sh consumer any_once group
 
 After the third one joins, a new rebalancing will occur and they will each have
 one partition assigned. Now the load is divided evenly and messages are
@@ -324,7 +324,7 @@ single consumer is responsible for processing the messages.
 
 Start a single consumer for topic 'manydevices':
 
-    $ ./clients.sh consumer manydevices
+    ./clients.sh consumer manydevices
 
 Start 10 producers by executing the following command 10 times:
 
@@ -342,7 +342,7 @@ being written to the topic.
 
 To kill all producers running in the background, execute command:
 
-    $ kill $(jobs -p)
+    kill $(jobs -p)
 
 
 ### Error handling in general
@@ -372,7 +372,7 @@ Run a producer and a consumer in two windows:
 Then pause the docker container with the broker to simulate that it stops
 responding:
 
-    $ docker-compose pause broker
+    docker-compose pause broker
     
 Now watch the error messages from the producer that will eventually appear. A
 prolonged pause will actually cause messages to be lost with the current
@@ -383,7 +383,7 @@ avoid losing events.
 
 Make the broker respond again:
 
-    $ docker-compose unpause broker
+    docker-compose unpause broker
     
 The producer recovers and sends its internal buffer of messages that have not
 yet expired due to timeouts.
@@ -391,13 +391,13 @@ yet expired due to timeouts.
 You may also restart the broker entirely, which causes it to lose its runtime
 state, and see what happens with the clients:
 
-    $ docker-compose restart broker
+    docker-compose restart broker
     
 or:
 
-    $ docker-compose stop broker
-    $ # wait a while..
-    $ docker-compose start broker
+    docker-compose stop broker
+    # wait a while..
+    docker-compose start broker
 
 You'll notice that the clients recover eventually, but if it is down for too
 long, messages will be lost. Also, you will notice rebalance notifications from
@@ -425,7 +425,7 @@ so that it is easy to spot.
 
 Start the producer:
 
-    $ ./clients.sh sequence-producer
+    ./clients.sh sequence-producer
     
 It will start at sequence number 0. If you restart, it will continue from where
 was last stopped, since the next sequence number is persisted to a temporary
@@ -434,7 +434,7 @@ file. (To reset this, stop the sequence-producer and remove the file
 
 Now start the corresponding consumer:
 
-    $ ./clients.sh sequence-consumer
+    ./clients.sh sequence-consumer
     
 It will read the sequence numbers already on the topic and log its state upon
 every message reception. You should see that the sequence is "in sync" and that
@@ -442,7 +442,7 @@ the error count is 0.
 
 While they are running, restart the Kafka broker:
 
-    $ docker-compose restart broker
+    docker-compose restart broker
     
 You should see the producer keeps sending messages, but does not receive
 acknowledgements. Eventually it will log errors about expired messages. The
@@ -473,11 +473,11 @@ unavailable ?
 
 Start a producer and two consumers with a simple 1 partition topic:
 
-    $ ./clients.sh producer sometopic
+    ./clients.sh producer sometopic
     
 Then two consumers in other terminal windows:
 
-    $ ./clients.sh consumer sometopic group
+    ./clients.sh consumer sometopic group
     
 You will notice that one of the consumers is idle (no "untaken" partitions in
 consumer group), and the other one is assigned the active partition and is
@@ -485,7 +485,7 @@ processing messages. Figure out the PID of the *active* consumer and kill it
 with `kill -9`. (The PID is printed to the console right after the consumer is
 started.)
 
-    $ kill -9 <PID>
+    kill -9 <PID>
 
 This causes a sudden death of the consumer process and it will take a short
 while until Kafka notices that the consumer is gone. Watch the broker log and
@@ -501,9 +501,9 @@ see [relevant section](#local-kafka).*
 
 ### Running
 
-    $ mvn install              # in top project directory to ensure module 'messages' is installed
-    $ cd clients-spring
-    $ mvn spring-boot:run
+    mvn install              # in top project directory to ensure module 'messages' is installed
+    cd clients-spring
+    mvn spring-boot:run
     
 The application will automatically subscribe to and start consuming messages
 from the topics `measurements` (the standard producer in previous examples) and
@@ -547,7 +547,7 @@ available at http://localhost:8080/messages/api
 
 2. In another terminal, start a measurement producer: 
 
-        $ ./clients.sh producer
+        ./clients.sh producer
 
 3. Navigate your web browser to http://localhost:8080/measurements.html
 
@@ -584,7 +584,7 @@ method.
 To produce more messages in parallel, you can start more producers in the
 background:
 
-        $ ./clients.sh producer &>/dev/null &
+        ./clients.sh producer &>/dev/null &
         
 As more producers start, you should notice the logged batch sizes increase,
 since volume of messages increases and the consumer is slowed down. (Note: to
@@ -648,8 +648,8 @@ tips to keep things tidy and free resources.
 To stop and erase all `KafkaDockerComposeEnv`-created Docker containers and
 networks, use the following commands:
 
-    $ docker rm -fv $(docker ps -aq -f name=broker-test- -f name=zookeeper-test-)
-    $ docker network rm $(docker network ls -f name=kafkadockercomposeenv -q)
+    docker rm -fv $(docker ps -aq -f name=broker-test- -f name=zookeeper-test-)
+    docker network rm $(docker network ls -f name=kafkadockercomposeenv -q)
 
 
 ## Using kafkacat to inspect Kafka topics
@@ -661,7 +661,7 @@ powerful Kafka client that supports many options.
 
 A typical installation on Ubuntu Linux can be accomplished with:
 
-    $ sudo apt install kafkacat
+    sudo apt install kafkacat
 
 A tool which demonstrates use of kafkacat is included in the source code of this
 repository. It can be found `clients-kafkacat/topic-tail` and is a "tail"-like
@@ -674,7 +674,7 @@ Python 3.5+.
 You can connect to the Docker container running the Kafka broker and get access
 to some interesting command line tools:
 
-    $ docker exec -it broker /bin/bash -i
+    docker exec -it broker /bin/bash -i
     
 Then type "kafka-" and press TAB a couple of times to find the commands
 available.
