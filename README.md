@@ -1,6 +1,7 @@
-# A basic Kafka sandbox/demo app using official Java client libraries
+# Kafka sandbox/demo apps using official Java client libraries
 
-.. with a minimal set of dependencies. No Springs attached.
+- basic Java producer/consumer clients with minimal dependencies.
+- a Spring Boot application with Kafka consumer endpoints, internal storage and web interfaces.
 
 ## Purpose
 
@@ -10,9 +11,13 @@
   practice, and how error conditions affect the clients and the communication.
 - Experiment with the settings to learn and understand behaviour.
 - Easily modify and re-run code in the experimentation process.
+- Learn and experiment with setup of multiple Kafka consumers in a Spring Boot
+  application.
 - Contains code and examples of tests that use a local temporary Kafka
   environment to execute.
-
+- Even though not the primary purpose of this project: Learn about Java module
+  system and modular Maven builds.
+  
 
 ## Requirements
 
@@ -20,7 +25,7 @@
 - [Maven][2] 3.6.X (must be able to handle modular Java project)
 - A working [Docker][3] installation on localhost ([Docker for Windows][4] is fine), and
   [docker-compose][5].
-- A unix-like shell is handy, but not a strict requirement.
+- A unix-like shell is very handy, but not a strict requirement.
 
 [1]: https://adoptopenjdk.net/
 [2]: https://maven.apache.org/download.cgi
@@ -34,40 +39,63 @@ https://kafka.apache.org/documentation/#gettingStarted
 
 This page explains a lot of concepts which are useful to know about beforehand.
 
+And if interested in Spring Kafka: https://docs.spring.io/spring-kafka/reference/html/
+
+## Index
+
+1. [Getting started](#getting-started)
+2. [Communication patterns with Kafka](#kafka-patterns)
+3. [The Spring Boot application](#spring-boot) 
+4. [Tuning logging to get more details](#log-tuning)
+5. [Unit/integration tests with `DockerComposeEnv`](#integration-tests)
+6. [Using kafkacat to inspect Kafka topics](#kafkacat)
+7. [Using official Kafka command line tools](#kafka-cmds)
 
 ## Getting started
+<a name="getting-started"/>
+
 
 ### Building
+
+The project consists of three Maven modules:
+
+1. messages
+2. clients
+3. clients-spring
+
+The `messages` module is used by both the Spring application and regular command
+line clients and contains various messages types and handling of them.
 
 The build process is boring and very standard, but does test that Docker and
 docker-compose works on your host:
 
-    $ mvn package
+    $ mvn install
     
 If all goes well, an executable über-jar is built in
-`target/kafka-sandbox-<version>.jar`. The automated tests actually spin up Kafka
-on localhost, and so take a while to complete. To skip the tests during
-development iterations, use `mvn package -DskipTests` instead.
+`clients/target/clients-<version>.jar` for the basic Java clients. The automated
+tests actually spin up Kafka on localhost, and so take a while to complete. To
+skip the tests during development iterations, use `mvn install -DskipTests`
+instead.
 
-The jar-file can be executed simply by running `./run.sh` from the project
-directory, or alternatively using `java -jar target/kafka-sandbox*.jar`.
+The jar-file can be executed simply by running `./clients.sh` from the project
+directory, or alternatively using `java -jar clients/target/clients*.jar`.
 
 ### Running a Kafka environment on localhost
 <a name="local-kafka"/>
 
 Ensure the can you can get Kafka up and running on localhost. For running the
-command line client of kafka-sandbox, all you need to do is run the following in
-a dedicated terminal with current directory being the kafka-sandbox project
-directory:
+command line clients or Spring boot application of kafka-sandbox, all you need
+to do is run the following in a dedicated terminal with current directory being
+the kafka-sandbox project directory:
 
     $ docker-compose up
 
-### Running the kafka-sandbox command line client
+### Running the kafka-sandbox command line clients
 
 To get started:
 
-    $ chmod +x run.sh
-    $ ./run.sh --help
+    $ chmod +x clients.sh
+    $ ./clients.sh --help
     Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'
     Use: 'sequence-producer [TOPIC [P]]' or 'sequence-consumer [TOPIC [GROUP]]'
     Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'
@@ -77,7 +105,8 @@ To get started:
     Default consumer group is 'console'
     Kafka broker is localhost:9092
 
-(The run script will trigger a Maven build if no JAR file exists in `target/`.)
+(The run script will trigger a Maven build if no JAR file exists in
+`clients/target/`.)
 
 The producer and consumer modes are paired according to the type of messages
 they can exchange. The default 'producer' creates synthentic "temperature
@@ -104,11 +133,13 @@ topics for testing purposes.
 ### Running directly from IntelliJ
 
 You can create run configurations in IntelliJ for all the examples, by starting
-the `no.nav.kafka.sandbox.Bootstrap` class with the arguments. So a shell is not
-strictly required.
+the `no.nav.kafka.sandbox.Bootstrap` class with the arguments and create a
+Spring boot run configuration for the `Application` class in `clients-spring`.
+So a shell is not strictly required.
 
 
 ## Communication patterns with Kafka
+<a name="kafka-patterns"/>
 
 *These examples assume that you have a local Kafka broker up and running on `localhost:9092`, 
 see [relevant section](#local-kafka).*
@@ -122,7 +153,7 @@ We will use the default topic with a single partition:
 
 *In terminal 1:*
 
-    $ ./run.sh producer
+    $ ./clients.sh producer
 
 The producer will immediately start sending messages to the Kafka topic
 'measurements'. Since this default topic only has one partition, the exact place
@@ -131,7 +162,7 @@ partition 0 for the topic.
 
 *In terminal 2:*
 
-    $ ./run.sh consumer
+    $ ./clients.sh consumer
     
 The consumer will connect to Kafka and starting polling for messages. It will
 display the messages in the console as they arrive. The consumer subscribes to
@@ -166,7 +197,7 @@ To observe what happens when a consumer disconnects and reconnects to the same t
    because the consumer group offset is stored server side.
 3. Kill the consumer again, and restart with a different (new) consumer group:
 
-        $ ./run.sh consumer measurements othergroup
+        $ ./clients.sh consumer measurements othergroup
         
    Notice how it now starts displaying messages from the very beginning of the
    topic (offset 0). This is because no previous offset has been stored for the
@@ -176,7 +207,7 @@ To observe what happens when a consumer disconnects and reconnects to the same t
 What happens when a second consumer joins ? Start a second consumer in a new
 terminal window:
 
-        $ ./run.sh consumer measurements othergroup
+        $ ./clients.sh consumer measurements othergroup
         
 You will now notice that one of the two running consumers will stop receiving
 messages, and in that case the following message will appear:
@@ -198,15 +229,15 @@ processed by any number of different consumer groups.
 
 Initialize a new topic with 1 partition and start a producer:
 
-    $ ./run.sh newtopic one_to_many 1
+    $ ./clients.sh newtopic one_to_many 1
 
-    $ ./run.sh producer one_to_many
+    $ ./clients.sh producer one_to_many
 
     
 And fire up as many consumers as desired in new terminal windows, but increment
 the group number N for each one:
 
-    $ ./run.sh consumer one_to_many group-N
+    $ ./clients.sh consumer one_to_many group-N
     
 You will notice that all the consumer instances report the same messages and
 offsets after a short while. Because they are all in different consumer groups,
@@ -219,15 +250,15 @@ processed by any consumer in a consumer group.
 
 Create a topic with 3 partitions:
 
-    $ ./run.sh newtopic any_once 3
+    $ ./clients.sh newtopic any_once 3
     
 Start three producers in three terminals, one for each partition:
 
-    $ ./run.sh producer any_once 0
+    $ ./clients.sh producer any_once 0
 
-    $ ./run.sh producer any_once 1
+    $ ./clients.sh producer any_once 1
 
-    $ ./run.sh producer any_once 2
+    $ ./clients.sh producer any_once 2
 
 Here we are explicitly specifying which partition each producer should write to,
 so that we ensure an even distribution of messages for the purpose of this
@@ -243,14 +274,14 @@ Next, we are going to start consumer processes.
 
 Begin with a single consumer:
 
-    $ ./run.sh consumer any_once group
+    $ ./clients.sh consumer any_once group
     
 You will notice that this first consumer gets assigned all three partitions on
 the topic and starts displaying received messages.
 
 Let's scale up to another consumer. Run in a new terminal:
 
-    $ ./run.sh consumer any_once group
+    $ ./clients.sh consumer any_once group
 
 When this consumer joins, you can see rebalancing messages, and it will be
 assigned one or two partitions from the topic, while the first is removed from
@@ -259,7 +290,7 @@ running consumers.
 
 Scale further by starting a third consumer in a new terminal:
 
-    $ ./run.sh consumer any_once group
+    $ ./clients.sh consumer any_once group
 
 After the third one joins, a new rebalancing will occur and they will each have
 one partition assigned. Now the load is divided evenly and messages are
@@ -293,11 +324,11 @@ single consumer is responsible for processing the messages.
 
 Start a single consumer for topic 'manydevices':
 
-    $ ./run.sh consumer manydevices
+    $ ./clients.sh consumer manydevices
 
 Start 10 producers by executing the following command 10 times:
 
-    $ ./run.sh producer manydevices 1>/dev/null 2>&1 &
+    $ ./clients.sh producer manydevices 1>/dev/null 2>&1 &
     [x10..]
     
 The producers will be started in the background by the shell and the output is
@@ -332,10 +363,10 @@ Here is a recipe to experiment with such scenarios.
 
 Run a producer and a consumer in two windows:
 
-    $ ./run.sh producer
+    $ ./clients.sh producer
     [...]
     
-    $ ./run.sh consumer
+    $ ./clients.sh consumer
     [...]
     
 Then pause the docker container with the broker to simulate that it stops
@@ -394,7 +425,7 @@ so that it is easy to spot.
 
 Start the producer:
 
-    $ ./run.sh sequence-producer
+    $ ./clients.sh sequence-producer
     
 It will start at sequence number 0. If you restart, it will continue from where
 was last stopped, since the next sequence number is persisted to a temporary
@@ -403,7 +434,7 @@ file. (To reset this, stop the sequence-producer and remove the file
 
 Now start the corresponding consumer:
 
-    $ ./run.sh sequence-consumer
+    $ ./clients.sh sequence-consumer
     
 It will read the sequence numbers already on the topic and log its state upon
 every message reception. You should see that the sequence is "in sync" and that
@@ -442,11 +473,11 @@ unavailable ?
 
 Start a producer and two consumers with a simple 1 partition topic:
 
-    $ ./run.sh producer sometopic
+    $ ./clients.sh producer sometopic
     
 Then two consumers in other terminal windows:
 
-    $ ./run.sh consumer sometopic group
+    $ ./clients.sh consumer sometopic group
     
 You will notice that one of the consumers is idle (no "untaken" partitions in
 consumer group), and the other one is assigned the active partition and is
@@ -460,16 +491,141 @@ This causes a sudden death of the consumer process and it will take a short
 while until Kafka notices that the consumer is gone. Watch the broker log and
 what eventually happens with the currently idle consumer.
 
+## The Spring Boot application
+<a name="spring-boot"/>
+
+The Spring Boot application is in Maven module `clients-spring/`.
+
+*The application requires that you have a local Kafka broker up and running on `localhost:9092`, 
+see [relevant section](#local-kafka).*
+
+### Running
+
+    $ mvn install              # in top project directory to ensure module 'messages' is installed
+    $ cd clients-spring
+    $ mvn spring-boot:run
+    
+The application will automatically subscribe to and start consuming messages
+from the topics `measurements` (the standard producer in previous examples) and
+`messages` (for messages created by `console-message-producer` client). The
+consumed messages are stored in-memory in a fixed size event store.
+
+### Web interfaces
+
+#### http://localhost:8080/measurements.html
+
+A web page showing measurements/"sensor event" messages from Kafka. It uses an
+API endpoint available at http://localhost:8080/measurements/api
+ 
+#### http://localhost:8080/messages.html
+
+A web page showing "console message" events from Kafka. It uses an API endpoint
+available at http://localhost:8080/messages/api
+
+
+### Talk to Spring boot application (or yourself) using Kafka
+
+1. In one terminal, start the Spring boot application as described earlier.
+
+2. In another terminal, from project root dir, start the command line console
+   message producer:
+
+        $ ./clients.sh console-message-producer
+        36 [main] INFO Bootstrap - New producer with PID 19445
+        191 [main] INFO JsonMessageProducer - Start producer loop
+        Send messages to Kafka, use CTRL+D to exit gracefully.
+        Type message>
+
+3. Navigate your web browser to http://localhost:8080/messages.html 
+
+4. Type a message into the terminal. As soon as the Spring application has
+   consumed the message from Kafka, the web page will display it.
+   
+### Show live view of measurements as the are consumed by Spring application
+
+1. In one terminal, start the Spring boot application as described earlier.
+
+2. In another terminal, start a measurement producer: 
+
+        $ ./clients.sh producer
+
+3. Navigate your web browser to http://localhost:8080/measurements.html
+
+4. Observe live as new measurement events are consumed by the Spring application
+   and displayed on the page. New events are highlighted for a brief period to
+   make them visually easier to distinguish.
+
+### Experiement with Spring application
+
+In the previous scenario, try to artificically slow down the Spring application
+consumer and see what happens to the size of the batches that it consumes. To
+slow it down, start with the following arguments:
+
+        spring-boot:run -Dspring-boot.run.arguments=--measurements.consumer.slowdown=3000
+
+This will make the Kakfa listener endpoint in
+`no.nav.kafka.sandbox.measurements.MeasurementsConsumer#receive` halt for 3
+seconds every time Spring invokes the method with incoming messages. This
+endpoint is setup with batching enabled, so you should see larger batches being
+processed, depending on amount of messages produced, and how slow the consumer
+is.
+
+The listener endpoint logs the size of batches it processes, so you should be
+able to see it in the application log. By default, the listener endpoint is
+invoked by at most two Spring-kafka managed threads (each with their own
+`KafkaConsumer`). This is setup in
+`no.nav.kafka.sandbox.measurements.MeasurementsConfig`, locate line with
+`factory.setConcurrency(2);`. Do you think concurrency above 1 has any effect
+when the topic only has one partition `measurements-0` ? Inspect the thread-ids
+in the application log as it consumes messages, to determine if there is
+actually more than one thread invoking the listener
+method.
+
+To produce more messages in parallel, you can start more producers in the
+background:
+
+        $ ./clients.sh producer &>/dev/null &
+        
+As more producers start, you should notice the logged batch sizes increase,
+since volume of messages increases and the consumer is slowed down. (Note: to
+clean up producers running in the background, you can kill them with `kill
+$(jobs -p)`.)
+
+Going further, you can test true parallel messages consumption in Spring, by
+changing the number of partitions on the `measurements` topic:
+
+1. Stop Spring Boot application and any running command line producer/consumer
+   clients.
+
+2. Delete measurements topic: `./clients.sh deltopic measurements`. 
+
+3. Create new measurements topic with 4 partitions: `./clients.sh newtopic measurements 4`
+
+4. Start Spring boot application as described earlier.
+
+5. Start several producers in the background, as described earlier.
+
+6. Watch Spring application log and notice that there are now two different
+   thread ids invoking the listener endpoint in
+   `no.nav.kafka.sandbox.measurements.MeasurementsConsumer#receive`.
+   
+   
+Lastly, Spring-kafka has sophisticated support for various error handling and
+commit strategies which you can try out by modifying the code.
 
 ## Tuning logging to get more details
+<a name="log-tuning"/>
 
 If you would like to see the many technical details that the Kafka clients emit,
 you can set the log level of the Apache Kafka clients in the file
 `src/main/resources/simplelogger.properties`. It is by default `WARN`, but
-`INFO` will output much more information.
+`INFO` will output much more information. For the Spring Boot application,
+logging setup is very standard and can be adjusted according to Spring
+documentation.
 
 
 ## Unit/integration tests with `DockerComposeEnv`
+<a name="integration-tests"/>
 
 The class `DockerComposeEnv` can be used to manage a temporary docker-compose
 environment for unit tests. It makes it simple to bring up/down
@@ -497,6 +653,7 @@ networks, use the following commands:
 
 
 ## Using kafkacat to inspect Kafka topics
+<a name="kafkacat"/>
 
 When working with Kafka, a very useful command line tool is
 [kafkacat](https://github.com/edenhill/kafkacat). It is a light weight, but
@@ -507,11 +664,12 @@ A typical installation on Ubuntu Linux can be accomplished with:
     $ sudo apt install kafkacat
 
 A tool which demonstrates use of kafkacat is included in the source code of this
-repository. It can be found `src/tools/topic-tail` and is a "tail"-like command
-to show metadata for the latest records on a Kafka topic. It requires Python
-3.5+.
+repository. It can be found `clients-kafkacat/topic-tail` and is a "tail"-like
+command to show metadata for the latest records on a Kafka topic. It requires
+Python 3.5+.
 
 ## Using official Kafka command line tools
+<a name="kafka-cmds"/>
 
 You can connect to the Docker container running the Kafka broker and get access
 to some interesting command line tools:

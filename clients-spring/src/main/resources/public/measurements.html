@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Measurements</title>
+    <meta charset='utf-8'>
+    <style>
+        body { font-family: Arial, Helvetica, sans-serif; background: black; color: white }
+        .deviceId { color: #ad7fa8 } .value { color: #729fcf } .timestamp { color: #73d216 }
+        h1 { font-style: italic }
+        td, tr { padding: 1rem; }
+        @keyframes new {
+            from {background-color: #999999; }
+            to {background-color: #000000;}
+        }
+        .new { animation-name: new; animation-duration: 1s; }
+    </style>
+</head>
+<body>
+
+<h1>Measurements</h1>
+<p>Ordered from newest to oldest.</p>
+<table>
+    <thead>
+        <tr><th>device-id</th><th>timestamp</th><th>type</th><th>unit</th><th>value</th><tr>
+    </thead>
+    <tbody id="measurements">
+    </tbody>
+</table>
+<script>
+    const maxRows = 200;
+    function appendToTable(measurements) {
+        const tbody = document.getElementById('measurements').cloneNode(true);
+        for (var i=0; i<tbody.children.length; i++) {
+            tbody.children[i].removeAttribute('class');
+        }
+        const newRows = document.createDocumentFragment();
+        for (var i=measurements.length-1; i>=0; i--) {
+            const m = measurements[i];
+            const tr = document.createElement('tr');
+            tr.setAttribute('class', 'new');
+            let td = document.createElement('td');
+            td.setAttribute('class', 'deviceId');
+            td.appendChild(document.createTextNode(m.deviceId));
+            tr.appendChild(td);
+
+            td = document.createElement('td');
+            td.setAttribute('class', 'timestamp');
+            td.appendChild(document.createTextNode(m.timestamp));
+            tr.appendChild(td);
+
+            td = document.createElement('td');
+            td.setAttribute('class', 'type');
+            td.appendChild(document.createTextNode(m.measureType));
+            tr.appendChild(td);
+
+            td = document.createElement('td');
+            td.setAttribute('class', 'unit');
+            td.appendChild(document.createTextNode(m.unitType));
+            tr.appendChild(td);
+
+            td = document.createElement('td');
+            td.setAttribute('class', 'value');
+            td.appendChild(document.createTextNode(m.value));
+            tr.appendChild(td);
+            newRows.appendChild(tr);
+        }
+        tbody.insertBefore(newRows, tbody.firstChild);
+
+        while (tbody.lastChild && tbody.childNodes.length > maxRows) {
+            tbody.lastChild.remove();
+        }
+        document.getElementById('measurements').replaceWith(tbody);
+    }
+    function fetchMessages(since) {
+        return fetch('/measurements/api' + (since ? '?after='+since : ''), { cache: 'no-cache' });
+    }
+    let latest = null;
+    function update() {
+        fetchMessages(latest).then((res) => {
+            return res.json();
+        }).then((measurements) => {
+            if (measurements.length > 0) {
+                latest = measurements[measurements.length-1].timestamp;
+            }
+            appendToTable(measurements);
+        });
+    }
+    setInterval(update, 2000);
+</script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: Kafka sandbox web
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      client-id: spring-web
+      group-id: ${GROUPID:spring-web}
+      properties:
+        spring.json.trusted.packages: no.nav.kafka.sandbox.messages
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+consolemessages:
+  event-store:
+    max-size: 200
+  consumer:
+    topic: messages
+
+measurements:
+  event-store:
+    max-size: 200
+  consumer:
+    topic: measurements
+    # increase this to slow down batch consumer, which will result in getting larger batches for each call (value in milliseconds)
+    slowdown: 0
