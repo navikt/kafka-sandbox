@@ -79,8 +79,7 @@ instead.
 The jar-file can be executed simply by running `./clients.sh` from the project
 directory, or alternatively using `java -jar clients/target/clients*.jar`.
 
-### Running a Kafka environment on localhost
-<a name="local-kafka"/>
+### Running a Kafka environment on localhost             <a name="local-kafka"/>
 
 Ensure the can you can get Kafka up and running on localhost. For running the
 command line clients or Spring boot application of kafka-sandbox, all you need
@@ -137,8 +136,7 @@ Spring boot run configuration for the `Application` class in `clients-spring`.
 So a shell is not strictly required.
 
 
-## Communication patterns with Kafka
-<a name="kafka-patterns"/>
+## Communication patterns with Kafka                 <a name="kafka-patterns"/>
 
 *These examples assume that you have a local Kafka broker up and running on `localhost:9092`, 
 see [relevant section](#local-kafka).*
@@ -490,8 +488,7 @@ This causes a sudden death of the consumer process and it will take a short
 while until Kafka notices that the consumer is gone. Watch the broker log and
 what eventually happens with the currently idle consumer.
 
-## The Spring Boot application
-<a name="spring-boot"/>
+## The Spring Boot application                       <a name="spring-boot"/>
 
 The Spring Boot application is in Maven module `clients-spring/`.
 
@@ -612,8 +609,7 @@ changing the number of partitions on the `measurements` topic:
 Lastly, Spring-kafka has sophisticated support for various error handling and
 commit strategies which you can try out by modifying the code.
 
-## Tuning logging to get more details
-<a name="log-tuning"/>
+## Tuning logging to get more details                    <a name="log-tuning"/>
 
 If you would like to see the many technical details that the Kafka clients emit,
 you can set the log level of the Apache Kafka clients in the file
@@ -623,8 +619,7 @@ logging setup is very standard and can be adjusted according to Spring
 documentation.
 
 
-## Unit/integration tests with `DockerComposeEnv`
-<a name="integration-tests"/>
+## Unit/integration tests with `DockerComposeEnv`       <a name="integration-tests"/>
 
 The class `DockerComposeEnv` can be used to manage a temporary docker-compose
 environment for unit tests. It makes it simple to bring up/down
@@ -651,8 +646,7 @@ networks, use the following commands:
     docker network rm $(docker network ls -f name=kafkadockercomposeenv -q)
 
 
-## Using kafkacat to inspect Kafka topics
-<a name="kafkacat"/>
+## Using kafkacat to inspect Kafka topics                  <a name="kafkacat"/>
 
 When working with Kafka, a very useful command line tool is
 [kafkacat](https://github.com/edenhill/kafkacat). It is a light weight, but
@@ -661,14 +655,29 @@ powerful Kafka client that supports many options.
 A typical installation on Ubuntu Linux can be accomplished with:
 
     sudo apt install kafkacat
+    
+Or Mac:
+
+    brew install kafkacat
 
 A tool which demonstrates use of kafkacat is included in the source code of this
 repository. It can be found `clients-kafkacat/topic-tail` and is a "tail"-like
 command to show metadata for the latest records on a Kafka topic. It requires
-Python 3.5+.
+Python 3.5+ and kafkacat to run.
 
-## Using official Kafka command line tools
-<a name="kafka-cmds"/>
+Try it out:
+
+1. Ensure measurements producer is running: `./clients.sh producer`
+
+2. Tail topic:
+
+        $ clients-kafkacat/topic-tail -f measurements
+        [measurements-0] key sensor-9950, sz   127, ts 2020-10-06T22:50:53.755, offset 0
+        [measurements-0] key sensor-9950, sz   127, ts 2020-10-06T22:50:55.633, offset 1
+        [measurements-0] key sensor-9950, sz   127, ts 2020-10-06T22:50:57.608, offset 2
+        
+
+## Using official Kafka command line tools                <a name="kafka-cmds"/>
 
 You can connect to the Docker container running the Kafka broker and get access
 to some interesting command line tools:
