@@ -51,8 +51,7 @@ And if interested in Spring Kafka: https://docs.spring.io/spring-kafka/reference
 6. [Using kafkacat to inspect Kafka topics](#kafkacat)
 7. [Using official Kafka command line tools](#kafka-cmds)
 
-## Getting started
-<a name="getting-started"/>
+## Getting started                                       <a name="getting-started"/>
 
 
 ### Building
