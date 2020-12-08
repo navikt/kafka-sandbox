@@ -15,8 +15,8 @@
     <packaging>jar</packaging>
 
     <properties>
-        <spring-boot.version>2.3.3.RELEASE</spring-boot.version>
-        <spring-kafka.version>2.6.1</spring-kafka.version>
+        <spring-boot.version>2.3.5.RELEASE</spring-boot.version>
+        <spring-kafka.version>2.6.3</spring-kafka.version>
     </properties>
 
     <dependencies>

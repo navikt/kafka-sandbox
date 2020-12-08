@@ -1,4 +1,4 @@
-module clients.spring {
+open module clients.spring {
     requires no.nav.kafka.sandbox.messages;
     requires spring.boot;
     requires spring.context;
@@ -7,5 +7,6 @@ module clients.spring {
     requires spring.beans;
     requires spring.boot.autoconfigure;
     requires kafka.clients;
+    requires com.fasterxml.jackson.databind;
     requires org.slf4j;
 }
