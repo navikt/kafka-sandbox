@@ -605,9 +605,45 @@ changing the number of partitions on the `measurements` topic:
    thread ids invoking the listener endpoint in
    `no.nav.kafka.sandbox.measurements.MeasurementsConsumer#receive`.
    
-   
-Lastly, Spring-kafka has sophisticated support for various error handling and
-commit strategies which you can try out by modifying the code.
+
+### Experiment with consumer error handling in Spring Kafka
+
+You can simulate failure to store events by adjusting the configuration property
+`measurements.event-store.failure-rate`. It is a floating point number between 0
+and 1 which determines how often the store that the consumer saves events to
+should fail with an exception, triggering Spring Kafka error handling.
+
+Try this:
+
+1. Ensure a producer for 'measurements' topic is running:
+
+        ./clients.sh producer
+        
+2. Start Spring Boot app in another terminal with:
+
+        mvn spring-boot:run -Dspring-boot.run.arguments=--measurements.event-store.failure-rate=1
+        
+Now all (100%) store operations will fail with `IOException`. See what happens
+in the application log. Error handling is all Spring Kafka defaults. Does Spring
+commit offsets when exceptions occur in consumer, in other words, does it
+progress beyond the point of failure ?
+
+Now switch to a custom error handler which ignores errors, but still logs them:
+
+    mvn spring-boot:run -Dspring-boot.run.arguments='--measurements.event-store.failure-rate=1 --measurements.consumer.error-handler=ignore-errors'
+
+Does Spring Kafka commit offsets and progress through the topic in this case ?
+
+You can investigate and modify code in
+`MeasurementsConfig#measurementsListenerContainer` and `IgnoreErrorsHandler` to
+experiment further. Spring has a large number of options and customizability
+with regard to error handling in Kafka consumers.
+
+Also see https://docs.spring.io/spring-kafka/reference/html/#error-handlers
+
+
+### TODO example of Kafka producer with Spring KafkaTemplate
+
 
 ## Tuning logging to get more details                    <a name="log-tuning"/>
 

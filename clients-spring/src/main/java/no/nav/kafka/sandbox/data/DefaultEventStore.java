@@ -4,22 +4,33 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Predicate;
 
 public class DefaultEventStore<T> implements EventStore<T> {
 
     private final Deque<T> events = new LinkedList<>();
     private final int maxSize;
+    private final boolean failOnMaxSize;
 
-    public DefaultEventStore(int maxSize) {
+    public DefaultEventStore(int maxSize, boolean failOnMaxSize) {
         this.maxSize = maxSize;
+        this.failOnMaxSize = failOnMaxSize;
     }
 
     @Override
     public synchronized void storeEvent(T event) {
         while (events.size() >= maxSize) {
+            if (failOnMaxSize) {
+                throw new IllegalStateException("Store has reached max capacity of " + events.size() + " events");
+            }
             events.removeFirst();
         }
         events.add(event);
+    }
+
+    @Override
+    public synchronized boolean removeIf(Predicate<T> p) {
+        return events.removeIf(p);
     }
 
     @Override

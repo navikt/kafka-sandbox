@@ -15,7 +15,7 @@ public class ConsoleMessagesConfig {
      */
     @Bean
     public EventStore<ConsoleMessages.Message> messageEventStore(@Value("${consolemessages.event-store.max-size:200}") int maxSize) {
-        return new DefaultEventStore<>(maxSize);
+        return new DefaultEventStore<>(maxSize, false);
     }
 
 }

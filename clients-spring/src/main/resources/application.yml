@@ -1,6 +1,7 @@
 spring:
   application:
     name: Kafka sandbox web
+  # See class org.springframework.boot.autoconfigure.kafka.KafkaProperties:
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
@@ -9,6 +10,8 @@ spring:
       properties:
         spring.json.trusted.packages: no.nav.kafka.sandbox.messages
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+
 
 consolemessages:
   event-store:
@@ -18,8 +21,16 @@ consolemessages:
 
 measurements:
   event-store:
+    # max size, older events will be discarded, unless 'fail-on-max-size' is true
     max-size: 200
+    # set to true to fail instead of discarding old elements when event store is full (test Kafka error handling for a persistent error)
+    fail-on-max-size: false
+    # set how often store writes should fail (to test Kafka consumer error handling for errors occuring sometimes)
+    failure-rate: 0.0
   consumer:
     topic: measurements
     # increase this to slow down batch consumer, which will result in getting larger batches for each call (value in milliseconds)
     slowdown: 0
+    # Select error handler. Unset or 'spring-default' just uses the Spring Kafka default handling.
+    # 'ignore-errors' logs, but ignores all errors from consumer, implemented in class "IgnoreErrorsHandler"
+    error-handler: spring-default
