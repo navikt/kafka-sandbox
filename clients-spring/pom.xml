@@ -15,8 +15,9 @@
     <packaging>jar</packaging>
 
     <properties>
-        <spring-boot.version>2.3.5.RELEASE</spring-boot.version>
-        <spring-kafka.version>2.6.3</spring-kafka.version>
+        <spring-boot.version>2.4.2</spring-boot.version>
+        <spring-framework.version>5.3.3</spring-framework.version>
+        <spring-kafka.version>2.6.5</spring-kafka.version>
     </properties>
 
     <dependencies>
@@ -30,6 +31,24 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
             <version>${spring-boot.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+            <version>${spring-framework.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-tx</artifactId>
+            <version>${spring-framework.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-messaging</artifactId>
+            <version>${spring-framework.version}</version>
         </dependency>
 
         <dependency>
