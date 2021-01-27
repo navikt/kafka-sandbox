@@ -12,6 +12,10 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       auto-offset-reset: earliest
 
+logging:
+  exception-conversion-word: "%wEx{short}" # shorter log traces are nice when experimenting with error handling
+  level:
+    org.apache.kafka: error
 
 consolemessages:
   event-store:
@@ -29,8 +33,16 @@ measurements:
     failure-rate: 0.0
   consumer:
     topic: measurements
+
     # increase this to slow down batch consumer, which will result in getting larger batches for each call (value in milliseconds)
     slowdown: 0
-    # Select error handler. Unset or 'spring-default' just uses the Spring Kafka default handling.
-    # 'ignore-errors' logs, but ignores all errors from consumer, implemented in class "IgnoreErrorsHandler"
+
+    # Select error handler.
+    # 'spring-default': just uses the Spring default for batch error handling (does not explicitly set an error handler).
+    # 'ignore':  logs, but ignores all errors from consumer, implemented in class IgnoreErrorsHandler
+    # 'seek-to-current': Spring SeekToCurrentBatchErrorHandler w/all defaults and no backoff (unlimited retries)
+    # 'seek-to-current-with-backoff': Spring SeekToCurrentBatchErrorHandler w/fixed delay and max 2 retries.
+    # 'retry-with-backoff': Spring RetryingBatchErrorHandler with no configured ConsumerRecordRecoverer
+    # 'retry-with-backoff-recovery': Spring RetryingBatchErrorHandler with custom ConsumerRecordRecoverer set (see RetryRecoveryHandler).
+    # 'recovering': Spring RecoveringBatchErrorHandler, see RecoveringErrorHandler
     error-handler: spring-default

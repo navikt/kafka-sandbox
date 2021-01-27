@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.io.Console;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -21,6 +22,19 @@ public class ConsoleMessages {
                        @JsonProperty("senderId") String id) {
             this.text = text;
             this.senderId = id;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Message message = (Message) o;
+            return Objects.equals(text, message.text) && Objects.equals(senderId, message.senderId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(text, senderId);
         }
     }
 

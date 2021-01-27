@@ -13,8 +13,9 @@ public interface EventStore<T> {
     /**
      *
      * @param event an immutable event object
+     * @return {@code true} if event was stored, {@code false} if it already existed
      */
-    void storeEvent(T event);
+    boolean storeEvent(T event);
 
     /**
      * @return all events from oldest to most recently added.

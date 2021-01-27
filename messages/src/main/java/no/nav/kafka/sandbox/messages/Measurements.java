@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 public class Measurements {
 
@@ -57,6 +58,23 @@ public class Measurements {
                     ", timestamp=" + timestamp +
                     ", value=" + value +
                     '}';
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            SensorEvent that = (SensorEvent) o;
+            return Objects.equals(deviceId, that.deviceId)
+                    && Objects.equals(measureType, that.measureType)
+                    && Objects.equals(unitType, that.unitType)
+                    && Objects.equals(timestamp, that.timestamp)
+                    && Objects.equals(value, that.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(deviceId, measureType, unitType, timestamp, value);
         }
     }
 

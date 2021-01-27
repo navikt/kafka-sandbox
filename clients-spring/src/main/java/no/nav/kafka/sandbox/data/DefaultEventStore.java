@@ -18,7 +18,10 @@ public class DefaultEventStore<T> implements EventStore<T> {
     }
 
     @Override
-    public synchronized void storeEvent(T event) {
+    public synchronized boolean storeEvent(T event) {
+        if (events.contains(event)) {
+            return false;
+        }
         while (events.size() >= maxSize) {
             if (failOnMaxSize) {
                 throw new IllegalStateException("Store has reached max capacity of " + events.size() + " events");
@@ -26,6 +29,7 @@ public class DefaultEventStore<T> implements EventStore<T> {
             events.removeFirst();
         }
         events.add(event);
+        return true;
     }
 
     @Override

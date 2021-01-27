@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
  * Demonstrates simple configuration of a consumer using only defaults from Spring auto-configuration and external
  * configuration file <code>src/main/resources/application.yml</code>. Annotation overrides the minimal set of properties
  * to allow proper deserialization of the incoming message type.
+ *
+ * <p>The consumer can only process one record at a time.</p>
  */
 @Component
 public class ConsoleMessagesConsumer {
@@ -27,6 +29,10 @@ public class ConsoleMessagesConsumer {
             topics = "${consolemessages.consumer.topic}",
             properties = {"spring.json.value.default.type=no.nav.kafka.sandbox.messages.ConsoleMessages.Message"})
     public void receiveMessage(ConsoleMessages.Message message) {
+        if (message == null) {
+            throw new NullPointerException("Message was null");
+        }
+
         LOG.info("Received a console message from {}", message.senderId);
         store.storeEvent(message);
     }

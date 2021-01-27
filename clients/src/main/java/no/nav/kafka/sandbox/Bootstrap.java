@@ -10,14 +10,14 @@ import no.nav.kafka.sandbox.messages.ConsoleMessages;
 import no.nav.kafka.sandbox.messages.Measurements;
 import no.nav.kafka.sandbox.messages.SequenceValidation;
 import no.nav.kafka.sandbox.producer.JsonMessageProducer;
+import no.nav.kafka.sandbox.producer.NullMessageProducer;
+import no.nav.kafka.sandbox.producer.StringMessageProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.NoSuchElementException;
-import java.util.Queue;
+import java.time.Duration;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -49,12 +49,15 @@ public class Bootstrap {
     public static void main(String...a) {
         final LinkedList<String> args = new LinkedList(Arrays.asList(a));
 
-        if (args.isEmpty() || args.get(0).isBlank() || "-h".equals(args.get(0)) || "--help".equals(args.get(0))) {
+        if (args.isEmpty() || args.get(0).isBlank() || args.contains("-h") || args.get(0).contains("--help")) {
             System.err.println("Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'");
             System.err.println("Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'");
             System.err.println("Use: 'sequence-producer [TOPIC [P]]' or 'sequence-consumer [TOPIC [GROUP]]'");
+            System.err.println("Use: 'null-producer [TOPIC [P]]' to produce a single message with null value");
+            System.err.println("Use: 'string-producer STRING [TOPIC [P]]' to produce a single UTF-8 encoded string message");
             System.err.println("Use: 'newtopic TOPIC [N]' to create a topic with N partitions (default 1).");
             System.err.println("Use: 'deltopic TOPIC' to delete a topic.");
+            System.err.println("Use: 'showtopics' to list topics/partitions available.");
             System.err.println("Default topic is chosen according to consumer/producer type.");
             System.err.println("Default consumer group is '"+ CONSUMER_GROUP_DEFAULT + "'");
             System.err.println("Kafka broker is " + DEFAULT_BROKER);
@@ -71,6 +74,10 @@ public class Bootstrap {
                     deleteTopic(args);
                     break;
 
+                case "showtopics":
+                    showTopics(args);
+                    break;
+
                 case "producer":
                     measurementProducer(args);
                     break;
@@ -81,6 +88,14 @@ public class Bootstrap {
 
                 case "sequence-producer":
                     sequenceProducer(args);
+                    break;
+
+                case "null-producer":
+                    nullProducer(args);
+                    break;
+
+                case "string-producer":
+                    stringProducer(args);
                     break;
 
                 case "sequence-consumer":
@@ -102,6 +117,15 @@ public class Bootstrap {
         } catch (IllegalArgumentException | NoSuchElementException e) {
             System.err.println("Bad syntax");
             System.exit(1);
+        }
+    }
+
+    private static void showTopics(Queue<String> args) {
+        try (TopicAdmin ta = new TopicAdmin(DEFAULT_BROKER)) {
+            LOG.info("Topic-partitions available at broker {}:", DEFAULT_BROKER);
+            ta.listTopics().stream().sorted().forEach(t -> System.out.println(t));
+        } catch (Exception e) {
+            System.err.println("Failed: "+ e.getMessage());
         }
     }
 
@@ -129,41 +153,56 @@ public class Bootstrap {
     private static void measurementProducer(Queue<String> args) {
         String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
         Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
-        producer(topic, partition, Measurements::acquireTemperatureSensorMeasurement, m -> m.getDeviceId());
+        jsonProducer(topic, partition, Measurements::acquireTemperatureSensorMeasurement, m -> m.getDeviceId());
     }
 
     private static void measurementConsumer(Queue<String> args) {
         String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
         String group = args.isEmpty() ? CONSUMER_GROUP_DEFAULT : args.remove();
-        consumer(topic, group, Measurements.SensorEvent.class, Measurements::sensorEventToConsole);
+        jsonConsumer(topic, group, Measurements.SensorEvent.class, Measurements::sensorEventToConsole);
     }
 
     private static void consoleMessageProducer(Queue<String> args) {
         String topic = args.isEmpty() ? MESSAGES_TOPIC : args.remove();
         Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
-        producer(topic, partition, ConsoleMessages.consoleMessageSupplier(), m -> m.senderId);
+        jsonProducer(topic, partition, ConsoleMessages.consoleMessageSupplier(), m -> m.senderId);
     }
 
     private static void consoleMessageConsumer(Queue<String> args) {
         String topic = args.isEmpty() ? MESSAGES_TOPIC : args.remove();
         String group = args.isEmpty() ? CONSUMER_GROUP_DEFAULT : args.remove();
-        consumer(topic, group, ConsoleMessages.Message.class, ConsoleMessages.consoleMessageConsumer());
+        jsonConsumer(topic, group, ConsoleMessages.Message.class, ConsoleMessages.consoleMessageConsumer());
     }
 
     private static void sequenceProducer(Queue<String> args) {
         String topic = args.isEmpty() ? SEQUENCE_TOPIC : args.remove();
         Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
-        producer(topic, partition, SequenceValidation.sequenceSupplier(
+        jsonProducer(topic, partition, SequenceValidation.sequenceSupplier(
                 new File("target/sequence-producer.state"), 1, TimeUnit.SECONDS), m -> null);
     }
 
     private static void sequenceValidatorConsumer(Queue<String> args) {
         String topic = args.isEmpty() ? SEQUENCE_TOPIC : args.remove();
         String group = args.isEmpty() ? CONSUMER_GROUP_DEFAULT : args.remove();
-        consumer(topic, group, Long.class, SequenceValidation.sequenceValidatorConsolePrinter());
+        jsonConsumer(topic, group, Long.class, SequenceValidation.sequenceValidatorConsolePrinter());
     }
 
-    private static <M> void producer(String topic, Integer partition, Supplier<M> messageSupplier, Function<M, String> keyFunction) {
+    private static void nullProducer(Queue<String> args) {
+        String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
+        Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
+        new NullMessageProducer(topic, partition, KafkaConfig.kafkaProducerProps(), m -> null)
+                .produce();
+    }
+
+    private static void stringProducer(Queue<String> args) {
+        String message = Objects.requireNonNull(args.remove(), "Message cannot be null");
+        String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
+        Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
+        new StringMessageProducer(topic, partition, KafkaConfig.kafkaProducerProps(), message, m -> String.valueOf(m.hashCode()))
+                .produce();
+    }
+
+    private static <M> void jsonProducer(String topic, Integer partition, Supplier<M> messageSupplier, Function<M, String> keyFunction) {
         LOG.info("New producer with PID " + obtainPid());
         JsonMessageProducer<M> producer = new JsonMessageProducer<>(topic, partition, KafkaConfig.kafkaProducerProps(), objectMapper(),
                 messageSupplier, keyFunction, true);
@@ -177,7 +216,7 @@ public class Bootstrap {
         producer.produceLoop();
     }
 
-    private static <M> void consumer(String topic, String group, Class<M> messageType, Consumer<M> messageHandler) {
+    private static <M> void jsonConsumer(String topic, String group, Class<M> messageType, Consumer<M> messageHandler) {
         LOG.info("New consumer with PID " + obtainPid());
         JsonMessageConsumer<M> consumer =
                 new JsonMessageConsumer(topic, messageType, KafkaConfig.kafkaConsumerProps(group),

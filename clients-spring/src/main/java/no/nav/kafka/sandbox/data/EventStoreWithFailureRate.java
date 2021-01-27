@@ -31,11 +31,11 @@ public class EventStoreWithFailureRate<T> extends DefaultEventStore<T> {
     }
 
     @Override
-    public synchronized void storeEvent(T event) {
+    public synchronized boolean storeEvent(T event) {
         if (randomizer.nextFloat() < failureRate) {
             throwSoftenedException(exceptionSupplier.apply(event));
         }
-        super.storeEvent(event);
+        return super.storeEvent(event);
     }
 
     private static RuntimeException throwSoftenedException(Throwable e) {

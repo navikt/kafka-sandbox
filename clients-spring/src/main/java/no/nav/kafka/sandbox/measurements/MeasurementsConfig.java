@@ -3,21 +3,32 @@ package no.nav.kafka.sandbox.measurements;
 import no.nav.kafka.sandbox.data.DefaultEventStore;
 import no.nav.kafka.sandbox.data.EventStore;
 import no.nav.kafka.sandbox.data.EventStoreWithFailureRate;
+import no.nav.kafka.sandbox.measurements.errorhandlers.IgnoreErrorHandler;
+import no.nav.kafka.sandbox.measurements.errorhandlers.RecoveringErrorHandler;
+import no.nav.kafka.sandbox.measurements.errorhandlers.RetryingErrorHandler;
 import no.nav.kafka.sandbox.messages.Measurements.SensorEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.BatchErrorHandler;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.RetryingBatchErrorHandler;
+import org.springframework.kafka.listener.SeekToCurrentBatchErrorHandler;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -26,9 +37,14 @@ import java.util.function.Function;
  *
  * <p>The configuration of Kafka consumer aspects is based on config from {@code src/main/resources/application.yml} with specific
  * overrides done manually in this configuration class.</p>
+ *
+ * <p>Error handling strategies can be customized by setting value of property <code>measurements.consumer.error-handler</code>
+ * </p>.
  */
 @Configuration
 public class MeasurementsConfig {
+
+    private static final Logger LOG = LoggerFactory.getLogger(MeasurementsConfig.class);
 
     /**
      * Customize different exceptions to throw depending on event to store.
@@ -54,13 +70,12 @@ public class MeasurementsConfig {
     }
 
     /**
-     * @param enableCustomErrorHandler whether to configure a custom error handler for the listener container
      * @return a Kafka listener container, which can be referenced by name from listener endpoints.
      */
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, SensorEvent> measurementsListenerContainer(
-            ConsumerFactory<String, SensorEvent> consumerFactory, // Provided by Spring
-            @Value("${measurements.consumer.error-handler:spring-default}") String errorHandler) {
+            ConsumerFactory<String, SensorEvent> consumerFactory,
+            Optional<BatchErrorHandler> errorHandler) {
 
         // Consumer configuration from application.yml, where we will override some properties:
         Map<String, Object> externalConfigConsumerProps = new HashMap<>(consumerFactory.getConfigurationProperties());
@@ -77,8 +92,11 @@ public class MeasurementsConfig {
         // Spring will commit offsets when a batch listener has completed processing without any exceptions being thrown.
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.BATCH);
 
-        if ("ignore-errors".equals(errorHandler)) {
-            factory.setBatchErrorHandler(new IgnoreErrorsHandler());
+        if (errorHandler.isPresent()) {
+            LOG.info("Using error handler: {}", errorHandler.get().getClass().getSimpleName());
+            factory.setBatchErrorHandler(errorHandler.get());
+        } else {
+            LOG.info("Using Spring Kafka default error handler");
         }
 
         return factory;
@@ -93,6 +111,45 @@ public class MeasurementsConfig {
         return new DefaultKafkaConsumerFactory<>(consumerProps,
                 new StringDeserializer(),
                 new JsonDeserializer<>(SensorEvent.class));
+    }
+
+    @Bean
+    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "ignore")
+    public BatchErrorHandler ignoreHandler() {
+        return new IgnoreErrorHandler();
+    }
+
+    @Bean
+    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "seek-to-current")
+    public BatchErrorHandler seekToCurrentHandler() {
+        return new SeekToCurrentBatchErrorHandler();
+    }
+
+    @Bean
+    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "seek-to-current-with-backoff")
+    public BatchErrorHandler seekToCurrentWithBackoffHandler() {
+        SeekToCurrentBatchErrorHandler handler = new SeekToCurrentBatchErrorHandler();
+        // For this error handler, max attempts actually does not matter
+        handler.setBackOff(new FixedBackOff(2000L, 2));
+        return handler;
+    }
+
+    @Bean
+    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "retry-with-backoff")
+    public BatchErrorHandler retryWithBackoffHandler() {
+        return new RetryingBatchErrorHandler(new FixedBackOff(2000L, 2), null);
+    }
+
+    @Bean
+    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "retry-with-backoff-recovery")
+    public BatchErrorHandler retryWithBackoffRecoveryHandler(EventStore<SensorEvent> eventStore) {
+        return new RetryingErrorHandler(eventStore);
+    }
+
+    @Bean
+    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "recovering")
+    public BatchErrorHandler recoveringHandler() {
+        return new RecoveringErrorHandler();
     }
 
 }
