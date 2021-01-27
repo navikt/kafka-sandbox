@@ -70,7 +70,7 @@
         }
 
         document.getElementById('measurements').replaceWith(tbody);
-        document.getElementById('count').innerText = tbody.childNodes.length;
+        document.getElementById('count').innerText = tbody.children.length;
     }
     function fetchMessages(since) {
         return fetch('/measurements/api' + (since ? '?after='+since : ''), { cache: 'no-cache' });
