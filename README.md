@@ -3,7 +3,7 @@
 - basic plain Java producer/consumer clients with minimal dependencies.
 - a Spring Boot application with Kafka consumer endpoints, internal storage and
   web interfaces.
-- tutorials/experiments/demos
+- tutorials, experiments, demos, samples
 
 ## Purpose
 
@@ -786,7 +786,7 @@ over to the consumer, which stores those successfully.
 End result: all valid messages that could be stored, have been stored, and the
 poison pill null message was simply skipped. Also, there is a performance
 benefit when comparing to the `RetryingErrorHandler`, since the valid messages
-are not written multiple times to the store.
+are not written multiple times to the store during retries/recovery.
 
 ### What about transient failures when storing events ?          <a name="spring-batch-error-6"/>
 
