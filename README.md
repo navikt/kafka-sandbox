@@ -620,6 +620,13 @@ changing the number of partitions on the `measurements` topic:
 
 ### Experiment: batch consumer error handling in Spring Kafka        <a name="spring-batch-error-1">
 
+Error handling is important in a distributed asynchronous world. It is often
+difficult to get right, both because the various error situations can be
+complex, but also hard to reproduce or picture in advance. The typical result of
+poor or ignored error handling is growing inconsistencies between data in
+various systems. In others words, things will eventually become inconsistent
+intead of consistent !
+
 You can simulate failure to store events by adjusting the configuration property
 `measurements.event-store.failure-rate`. It is a floating point number between 0 and
 1 which determines how often the store that the consumer saves events to should
