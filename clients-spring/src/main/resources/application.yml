@@ -39,10 +39,10 @@ measurements:
 
     # Select error handler.
     # 'spring-default': just uses the Spring default for batch error handling (does not explicitly set an error handler).
-    # 'ignore':  logs, but ignores all errors from consumer, implemented in class IgnoreErrorsHandler
+    # 'ignore':  logs, but ignores all errors from consumer, implemented in class IgnoreErrorHandler.
     # 'seek-to-current': Spring SeekToCurrentBatchErrorHandler w/all defaults and no backoff (unlimited retries)
     # 'seek-to-current-with-backoff': Spring SeekToCurrentBatchErrorHandler w/fixed delay and max 2 retries.
     # 'retry-with-backoff': Spring RetryingBatchErrorHandler with no configured ConsumerRecordRecoverer
-    # 'retry-with-backoff-recovery': Spring RetryingBatchErrorHandler with custom ConsumerRecordRecoverer set (see RetryRecoveryHandler).
-    # 'recovering': Spring RecoveringBatchErrorHandler, see RecoveringErrorHandler
+    # 'retry-with-backoff-recovery': Spring RetryingBatchErrorHandler with custom ConsumerRecordRecoverer set, see RetryingErrorHandler.
+    # 'recovering': Spring RecoveringBatchErrorHandler, see RecoveringErrorHandler.
     error-handler: spring-default
