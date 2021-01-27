@@ -738,7 +738,11 @@ You should only see the messages produced in step 2.
 After giving up, the error handler logs an error and a list of discarded
 messages. But this error handler also allows us to configure a
 `ConsumerRecordRecoverer` which will be given the opportunity to recover
-messages, one by one, after all retry attempts have been exhausted.
+messages, one by one, after all retry attempts have been exhausted. You can redo
+this experiment with the recovery option by running Spring boot app with error
+handler `retry-with-backoff-recovery` instead of `retry-with-backoff`. Are
+messages after the poision pill still lost ? See the code for this in
+`RetryingErrorHandler`.
 
 (In general, if you can ensure your storage is idempotent, you will be saving
 yourself some trouble in these situations, so that multiple writes of the same
