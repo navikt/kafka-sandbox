@@ -751,7 +751,7 @@ A more sophisticated error handler called
 [RecoveringBatchErrorHandler](https://docs.spring.io/spring-kafka/docs/current/reference/html/#recovering-batch-eh)
 is also available. Notice in the code for `RetryingErrorHandler` that it has to
 take care of storing valid events to the event store, which is also the consumer
-codes main job. So there is a slight duplication of efforts there. Constrast to
+code's main job. So there is a slight duplication of efforts there. Constrast to
 code in `RecoveringErrorHandler` which only needs to bother with exactly those
 messages that caused failure in a batch. Those cannot be stored anyway, so it
 does not require access to the event store.
