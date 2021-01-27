@@ -1,7 +1,9 @@
-# Kafka sandbox/demo apps using official Java client libraries
+# Kafka sandbox - experiments with official Kafka clients and Spring Boot
 
-- basic Java producer/consumer clients with minimal dependencies.
-- a Spring Boot application with Kafka consumer endpoints, internal storage and web interfaces.
+- basic plain Java producer/consumer clients with minimal dependencies.
+- a Spring Boot application with Kafka consumer endpoints, internal storage and
+  web interfaces.
+- tutorials/experiments/demos
 
 ## Purpose
 
@@ -29,7 +31,7 @@
 - A unix-like shell is very handy, but not a strict requirement.
 
 [1]: https://adoptopenjdk.net/
-[2]: https://maven.apache.org/download.cgi
+[2]: https://maven.apache.org/
 [3]: https://www.docker.com/
 [4]: https://docs.docker.com/docker-for-windows/install/
 [5]: https://docs.docker.com/compose/
