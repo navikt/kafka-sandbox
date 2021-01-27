@@ -9,10 +9,11 @@
 - Experiment with the console clients to learn about communication patterns
   possible with Kafka, how topic partitions and consumer groups work in
   practice, and how error conditions affect the clients and the communication.
-- Experiment with the settings to learn and understand behaviour.
-- Easily modify and re-run code in the experimentation process.
+- Experiment with the settings to learn and understand behaviour, easily modify
+  and re-run code in the experimentation process.
 - Learn and experiment with setup of multiple Kafka consumers in a Spring Boot
-  application. Learn about batch error handling strategies in Spring Kafka.
+  application.
+- Learn about batch error handling strategies in Spring Kafka.
 - Contains code and examples of tests that use a local temporary Kafka
   environment to execute.
 - Even though not the primary purpose of this project: Learn about Java module
@@ -46,13 +47,16 @@ And if interested in Spring Kafka: https://docs.spring.io/spring-kafka/reference
 1. [Getting started](#getting-started)
 2. [Communication patterns with Kafka](#kafka-patterns)
 3. [The Spring Boot application](#spring-boot)
-   1. [Experiment with the application](#spring-experiment)
-   2. [Batch consumer error handling in Spring Kafka](#spring-batch-error-1)
-   3. [Batch consumer error handling in Spring Kafka: infinite retries](#spring-batch-error-2)
-   4. [Batch consumer error handling in Spring Kafka: limited retries ?](#spring-batch-error-3)
-   5. [Batch consumer error handling in Spring Kafka: really limited retries](#spring-batch-error-4)
-   6. [Batch consumer error handling in Spring Kafka: limited retries and recovery](#spring-batch-error-5)
-   7. [What about transient failures when storing events ?](#spring-batch-error-6)
+   1. [Running](#spring-running)
+   2. [Web interfaces](#spring-web-interfaces)
+   3. [Talk to Spring boot application (or yourself) using Kafka](#spring-talk-to)
+   4. [Experiment with Spring application](#spring-experiment)
+   5. [Batch consumer error handling in Spring Kafka](#spring-batch-error-1)
+   6. [Batch consumer error handling in Spring Kafka: infinite retries](#spring-batch-error-2)
+   7. [Batch consumer error handling in Spring Kafka: limited retries ?](#spring-batch-error-3)
+   8. [Batch consumer error handling in Spring Kafka: really limited retries](#spring-batch-error-4)
+   9. [Batch consumer error handling in Spring Kafka: limited retries and recovery](#spring-batch-error-5)
+   10. [What about transient failures when storing events ?](#spring-batch-error-6)
 4. [Tuning logging to get more details](#log-tuning)
 5. [Unit/integration tests with `DockerComposeEnv`](#integration-tests)
 6. [Using kafkacat to inspect Kafka topics](#kafkacat)
@@ -501,7 +505,7 @@ The Spring Boot application is in Maven module `clients-spring/`.
 *The application requires that you have a local Kafka broker up and running on `localhost:9092`, 
 see [relevant section](#local-kafka).*
 
-### Running
+### Running                                          <a name="spring-running"/>
 
     mvn install              # in top project directory to ensure module 'messages' is installed
     cd clients-spring
@@ -512,7 +516,7 @@ from the topics `measurements` (the standard producer in previous examples) and
 `messages` (for messages created by `console-message-producer` client). The
 consumed messages are stored in-memory in a fixed size event store.
 
-### Web interfaces
+### Web interfaces                             <a name="spring-web-interfaces"/>
 
 #### http://localhost:8080/measurements.html
 
@@ -525,7 +529,7 @@ A web page showing "console message" events from Kafka. It uses an API endpoint
 available at http://localhost:8080/messages/api
 
 
-### Talk to Spring boot application (or yourself) using Kafka
+### Talk to Spring boot application (or yourself) using Kafka    <a name="spring-talk-to"/>
 
 1. In one terminal, start the Spring boot application as described earlier.
 
@@ -543,7 +547,7 @@ available at http://localhost:8080/messages/api
 4. Type a message into the terminal. As soon as the Spring application has
    consumed the message from Kafka, the web page will display it.
    
-### Show live view of measurements as the are consumed by Spring application
+### Show live view of measurements as they are consumed by Spring application
 
 1. In one terminal, start the Spring boot application as described earlier.
 
