@@ -649,7 +649,7 @@ Now switch to a custom error handler which ignores errors, but still logs them:
 
 Does Spring Kafka commit offsets and progress through the topic in this case ?
 
-### Experiment: batch consumer error handling in Spring Kafka: infinite retries       <a name="spring-batch-error-2/>
+### Experiment: batch consumer error handling in Spring Kafka: infinite retries       <a name="spring-batch-error-2"/>
 
 Try this:
 
