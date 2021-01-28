@@ -37,7 +37,7 @@ measurements:
     # increase this to slow down batch consumer, which will result in getting larger batches for each call (value in milliseconds)
     slowdown: 0
 
-    # Select error handler.
+    # Select error handler:
     # 'spring-default': just uses the Spring default for batch error handling (does not explicitly set an error handler).
     # 'ignore':  logs, but ignores all errors from consumer, implemented in class IgnoreErrorHandler.
     # 'seek-to-current': Spring SeekToCurrentBatchErrorHandler w/all defaults and no backoff (unlimited retries)
@@ -46,3 +46,6 @@ measurements:
     # 'retry-with-backoff-recovery': Spring RetryingBatchErrorHandler with custom ConsumerRecordRecoverer set, see RetryingErrorHandler.
     # 'recovering': Spring RecoveringBatchErrorHandler, see RecoveringErrorHandler.
     error-handler: spring-default
+
+    # Select whether deserialization exceptions of values should be handled:
+    handle-deserialization-error: true

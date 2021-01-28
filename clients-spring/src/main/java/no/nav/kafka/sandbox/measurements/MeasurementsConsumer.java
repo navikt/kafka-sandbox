@@ -11,10 +11,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.listener.BatchErrorHandler;
 import org.springframework.kafka.listener.BatchListenerFailedException;
+import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.stereotype.Component;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -63,11 +66,7 @@ public class MeasurementsConsumer {
         }
 
         records.forEach(record -> {
-            if (failedDeserialization(record)) {
-                // TODO requires configuration of special Spring delegating deserializer implementation to detect.
-                LOG.error("Message at {}-{}:{} failed to deserialize");
-                return;
-            }
+            if (checkFailedDeserialization(record)) return;
 
             if (record.value() == null) {
                 NullPointerException businessException = new NullPointerException("Message at "
@@ -94,17 +93,29 @@ public class MeasurementsConsumer {
         });
     }
 
-    private static boolean failedDeserialization(ConsumerRecord<String, Measurements.SensorEvent> record) {
-        Header keyDeserializationError = record.headers().lastHeader(ErrorHandlingDeserializer.KEY_DESERIALIZER_EXCEPTION_HEADER);
-        if (keyDeserializationError != null) {
+    private boolean checkFailedDeserialization(ConsumerRecord<String, Measurements.SensorEvent> record) {
+        return failedValueDeserialization(record).map(e -> {
+            LOG.error("Message value at {}-{} offset {} failed to deserialize: {}: {}, skipping it.",
+                    record.topic(), record.partition(), record.offset(),
+                    e.getClass().getSimpleName(), e.getMessage());
             return true;
-        }
+        }).orElse(false);
+    }
+
+
+    private static Optional<Throwable> failedValueDeserialization(ConsumerRecord<String, Measurements.SensorEvent> record) {
         Header valueDeserializationError = record.headers().lastHeader(ErrorHandlingDeserializer.VALUE_DESERIALIZER_EXCEPTION_HEADER);
         if (valueDeserializationError != null) {
-            return true;
+            try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(valueDeserializationError.value()))){
+                DeserializationException dex = (DeserializationException)ois.readObject();
+                return Optional.ofNullable(dex);
+            } catch (Exception e) {
+                LOG.error("Failed to read header containing deserialization exception information at {}-{}, offset {}",
+                        record.topic(), record.partition(), record.offset());
+            }
         }
 
-        return false;
+        return Optional.empty();
     }
 
 

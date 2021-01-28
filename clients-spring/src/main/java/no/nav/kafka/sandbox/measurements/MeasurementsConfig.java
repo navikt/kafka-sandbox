@@ -22,6 +22,7 @@ import org.springframework.kafka.listener.BatchErrorHandler;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.RetryingBatchErrorHandler;
 import org.springframework.kafka.listener.SeekToCurrentBatchErrorHandler;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.util.backoff.FixedBackOff;
 
@@ -75,14 +76,14 @@ public class MeasurementsConfig {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, SensorEvent> measurementsListenerContainer(
             ConsumerFactory<String, SensorEvent> consumerFactory,
-            Optional<BatchErrorHandler> errorHandler) {
+            Optional<BatchErrorHandler> errorHandler,
+            @Value("${measurements.consumer.handle-deserialization-error:true}") boolean handleDeserializationError) {
 
         // Consumer configuration from application.yml, where we will override some properties:
         Map<String, Object> externalConfigConsumerProps = new HashMap<>(consumerFactory.getConfigurationProperties());
 
-
         ConcurrentKafkaListenerContainerFactory<String, SensorEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(consumerFactory(externalConfigConsumerProps));
+        factory.setConsumerFactory(consumerFactory(externalConfigConsumerProps, handleDeserializationError));
         factory.setConcurrency(2); // Decrease/increase to observe how many threads are invoking the listener endpoint with message batches
         factory.setAutoStartup(true);
         factory.setBatchListener(true);
@@ -99,18 +100,34 @@ public class MeasurementsConfig {
             LOG.info("Using Spring Kafka default error handler");
         }
 
+        if (handleDeserializationError) {
+            LOG.info("Will handle value deserialization errors.");
+        } else {
+            LOG.info("Value deserialization errors are not handled explicitly.");
+        }
+
         return factory;
     }
 
-    private DefaultKafkaConsumerFactory<String, SensorEvent> consumerFactory(Map<String,Object> externalConfigConsumerProps) {
+    private DefaultKafkaConsumerFactory<String, SensorEvent> consumerFactory(
+            Map<String,Object> externalConfigConsumerProps,
+            boolean handleDeserializationError) {
         // override some consumer props from external config
         Map<String, Object> consumerProps = new HashMap<>(externalConfigConsumerProps);
         consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "spring-web-measurement");
         consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "spring-web-measurement");
 
-        return new DefaultKafkaConsumerFactory<>(consumerProps,
-                new StringDeserializer(),
-                new JsonDeserializer<>(SensorEvent.class));
+        // Deserialization config
+        consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        consumerProps.put(JsonDeserializer.VALUE_DEFAULT_TYPE, SensorEvent.class.getName());
+
+        if (handleDeserializationError) {
+            consumerProps.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+            consumerProps.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
+        }
+
+        return new DefaultKafkaConsumerFactory<>(consumerProps);
     }
 
     @Bean

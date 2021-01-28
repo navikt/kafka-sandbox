@@ -19,7 +19,7 @@ public class RecoveringErrorHandler extends RecoveringBatchErrorHandler {
 
             if (cause instanceof NullPointerException && record.value() == null) {
                 // We know how to handle this
-                LOG.error("Discarding null message at {}-{}:{}", record.topic(), record.partition(), record.offset());
+                LOG.error("Discarding null message at {}-{} offset {}", record.topic(), record.partition(), record.offset());
                 return;
             }
 

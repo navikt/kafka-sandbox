@@ -59,6 +59,8 @@ And if interested in Spring Kafka: https://docs.spring.io/spring-kafka/reference
    8. [Batch consumer error handling in Spring Kafka: really limited retries](#spring-batch-error-4)
    9. [Batch consumer error handling in Spring Kafka: limited retries and recovery](#spring-batch-error-5)
    10. [What about transient failures when storing events ?](#spring-batch-error-6)
+   11. [Handling failure to deserialize messages in batch consumer](#spring-batch-error-7)
+   
 4. [Tuning logging to get more details](#log-tuning)
 5. [Unit/integration tests with `DockerComposeEnv`](#integration-tests)
 6. [Using kafkacat to inspect Kafka topics](#kafkacat)
@@ -841,12 +843,66 @@ You can try this of course:
    events have been successfully written to the event store. There should be
    *none missing*, even though the store failed half of the write attempts !
    
+### Handling failure to deserialize messages in batch consumer       <a name="spring-batch-error-7"/>
+
+Since the deserialization step happens before our consumer listener gets the
+message, it needs to be handled in a special way. Spring has designed the
+`ErrorHandlingDeserializer` Kafka deserializer for this purpose. It catches
+failed attempts at deserializing from a delegated deserializer class.
+
+By default, our Spring Boot app is setup to handle failures with deserializing
+values.
+
+Test it out:
+
+1. Start Spring boot app (from `clients-spring/` directory):
+
+        mvn spring-boot:run
+        
+2. Send badly formatted data to the 'measurements' topic:
+
+        ./clients.sh string-producer '}badjson' measurements
+        
+Watch logs in Spring boot app. You'll see an error logged with information about
+the record that failed. This is accomplished by using Spring-Kafka
+`ErrorHandlingDeserializer` which delegates to the `JsonDeserializer`. Code for
+setting this up is found in `MesurementsConfig`. Code for extracting the error
+in the batch listener can be found in `MeasurementsConsumer`.
+
+Now try disabling handling of deserialization errors:
+
+1. Start Spring boot app:
+
+        mvn spring-boot:run -Dspring-boot.run.arguments='--measurements.consumer.handle-deserialization-error=false'
+        
+2. Send badly formatted data to the 'measurements' topic:
+
+        ./clients.sh string-producer '}badjson' measurements
+
+You will notice that the Spring boot app now behaves in an undesirable way, both
+because it will never progress past the bad record (unless it is unassigned from
+the topic-partition and another consumer in the same group picks up the bad
+record), and because it does no backoff delaying with the default error handler,
+so the listener container keeps failing over and over rapidly.
+
+To improve things slightly, you can select an error handler that does
+backoff-delaying, like `recovering`:
+
+    mvn spring-boot:run -Dspring-boot.run.arguments='--measurements.consumer.handle-deserialization-error=false --measurements.consumer.error-handler=recovering'
+
+It will not be able to progress beyond the error, but at least it does delay
+between attempts to avoid flodding logs and using up a lot of resources.
+
+The best is to actually handle deserialization errors, like demonstrated
+earlier.
+
 You can investigate and modify code in `MeasurementsConfig` and in package
 `no.nav.kafka.sandbox.measurements.errorhandlers` to experiment further. Spring
 has a large number of options and customizability with regard to error handling
 in Kafka consumers.
 
 Also see https://docs.spring.io/spring-kafka/reference/html/#error-handlers
+
 
 ## Tuning logging to get more details                    <a name="log-tuning"/>
 

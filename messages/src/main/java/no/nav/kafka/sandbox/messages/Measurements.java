@@ -22,11 +22,11 @@ public class Measurements {
                            @JsonProperty("unitType") String unitType,
                            @JsonProperty("timestamp") LocalDateTime timestamp,
                            @JsonProperty("value") Integer value) {
-            this.deviceId = deviceId;
-            this.measureType = measureType;
-            this.unitType = unitType;
-            this.timestamp = timestamp;
-            this.value = value;
+            this.deviceId = Objects.requireNonNull(deviceId);
+            this.measureType = Objects.requireNonNull(measureType);
+            this.unitType = Objects.requireNonNull(unitType);
+            this.timestamp = Objects.requireNonNull(timestamp);
+            this.value = Objects.requireNonNull(value);
         }
 
         public String getDeviceId() {

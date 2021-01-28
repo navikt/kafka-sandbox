@@ -30,19 +30,19 @@ public class RetryingErrorHandler extends RetryingBatchErrorHandler {
             if (cause instanceof NullPointerException) { // Or any expected business level type which can be sensibly handled
                 // Some message in batch failed because of null value
                 if (record.value() == null) {
-                    LOG.error("Record at {}-{}:{} has null value, skipping it", record.topic(), record.partition(), record.offset());
+                    LOG.error("Record at {}-{} offset {} has null value, skipping it", record.topic(), record.partition(), record.offset());
                     return;
                 }
 
                 if (!(record.value() instanceof Measurements.SensorEvent)) {
-                    LOG.error("Record at {}-{}:{} has invalid message type, skipping it", record.topic(), record.partition(), record.offset());
+                    LOG.error("Record at {}-{} offset {} has invalid message type, skipping it", record.topic(), record.partition(), record.offset());
                     return;
                 }
 
                 // This message however was not null, so we try to ensure it gets written into the event store.
                 Measurements.SensorEvent recoveredEvent = (Measurements.SensorEvent) record.value();
                 if (store.storeEvent(recoveredEvent)) { // Any exception thrown from store here will cause the whole batch to be re-processed.
-                    LOG.info("Recovered and stored event at {}-{}:{}", record.topic(), record.partition(), record.offset());
+                    LOG.info("Recovered and stored event at {}-{} offset {}", record.topic(), record.partition(), record.offset());
                 }
                 return;
             }
