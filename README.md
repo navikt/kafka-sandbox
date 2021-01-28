@@ -107,10 +107,13 @@ To get started:
     $ chmod +x clients.sh
     $ ./clients.sh --help
     Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'
-    Use: 'sequence-producer [TOPIC [P]]' or 'sequence-consumer [TOPIC [GROUP]]'
     Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'
+    Use: 'sequence-producer [TOPIC [P]]' or 'sequence-consumer [TOPIC [GROUP]]'
+    Use: 'null-producer [TOPIC [P]]' to produce a single message with null value
+    Use: 'string-producer STRING [TOPIC [P]]' to produce a single UTF-8 encoded string message
     Use: 'newtopic TOPIC [N]' to create a topic with N partitions (default 1).
     Use: 'deltopic TOPIC' to delete a topic.
+    Use: 'showtopics' to list topics/partitions available.
     Default topic is chosen according to consumer/producer type.
     Default consumer group is 'console'
     Kafka broker is localhost:9092
@@ -137,8 +140,13 @@ you type on the command line and ships them off to a Kafka topic. The
 console output. These can be used to get a more controlled message production
 where sending is driven by user input.
 
-The commands 'newtopic' and 'deltopic' allow simple administration of Kafka
-topics for testing purposes.
+The 'null-producer' produces a single record with a null value to a topic. Used
+for testing error handling of poison pill messages. The 'string-producer' can
+produce records with UTF-8 encoded strings as payload. It can be used to trigger
+deserialization errors for consumers expecting JSON payload.
+
+The commands 'newtopic', 'deltopic' and 'showtopics' allow simple administration
+of Kafka topics for testing purposes.
 
 ### Running directly from IntelliJ
 
