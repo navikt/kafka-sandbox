@@ -3,7 +3,7 @@
 - basic plain Java producer/consumer clients with minimal dependencies.
 - a Spring Boot application with Kafka consumer endpoints, internal storage and
   web interfaces.
-- tutorials, experiments, demos, samples
+- tutorials, experiments, demos, samples, learn by doing
 
 ## Purpose
 
