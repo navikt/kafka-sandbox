@@ -631,7 +631,7 @@ changing the number of partitions on the `measurements` topic:
 ### Experiment: batch consumer error handling in Spring Kafka        <a name="spring-batch-error-1">
 
 *In general, for the following experiments, you should ensure the Spring Boot app
-is _stopped_ before starting with the instructions.*
+is _stopped_ before following the instructions.*
 
 Error handling is important in a distributed asynchronous world. It is often
 difficult to get right, both because the various error situations can be
