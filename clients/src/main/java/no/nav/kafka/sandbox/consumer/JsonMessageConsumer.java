@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 /**
@@ -28,6 +29,7 @@ public class JsonMessageConsumer<T> {
     private final Logger log = LoggerFactory.getLogger(getClass());
     private final Class<T> messageType;
     private final Consumer<T> messageHandler;
+    private final AtomicInteger successConsumeCount = new AtomicInteger(0);
 
     public JsonMessageConsumer(String topic, Class<T> messageType, Map<String,Object> kafkaConfig,
                                ObjectMapper mapper, Consumer<T> messageHandler) {
@@ -95,12 +97,14 @@ public class JsonMessageConsumer<T> {
         }
         log.info("Closing KafkaConsumer ..");
         kafkaConsumer.close();
+        log.info("Successfully consumed {} messages.", successConsumeCount.get());
     }
 
     private void handleRecord(ConsumerRecord<String,String> record) {
         try {
             T value = deserialize(record.value(), this.messageType);
             this.messageHandler.accept(value);
+            successConsumeCount.incrementAndGet();
         } catch (Exception e) {
             log.error("Handle record with offset {}, failed to in message handler or deserialization: {}" , record.offset(), e.getMessage());
         }
