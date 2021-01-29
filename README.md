@@ -526,6 +526,7 @@ see [relevant section](#local-kafka).*
 .. or use the convenience script `spring-boot.sh` from project top level
 directory, which is used in all examples:
 
+    chmod +x spring-boot.sh
     ./spring-boot.sh
 
 The application will automatically subscribe to and start consuming messages
