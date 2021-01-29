@@ -198,7 +198,8 @@ public class Bootstrap {
         String message = Objects.requireNonNull(args.remove(), "Message cannot be null");
         String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
         Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
-        new StringMessageProducer(topic, partition, KafkaConfig.kafkaProducerProps(), message, m -> String.valueOf(m.hashCode()))
+        new StringMessageProducer(topic, partition, KafkaConfig.kafkaProducerProps(), message,
+                m -> String.valueOf(Math.abs(m.hashCode())))
                 .produce();
     }
 
