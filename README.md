@@ -1,4 +1,4 @@
-# Kafka sandbox - experiments with Kafka clients and Spring Boot
+# Kafka sandbox - experiments with Kafka clients and Spring Kafka
 
 - basic plain Java producer/consumer clients with minimal dependencies.
 - a Spring Boot application with Kafka consumer endpoints, internal storage and
