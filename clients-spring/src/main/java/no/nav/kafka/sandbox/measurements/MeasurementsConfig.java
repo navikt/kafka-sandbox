@@ -18,10 +18,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.listener.BatchErrorHandler;
-import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.listener.RetryingBatchErrorHandler;
-import org.springframework.kafka.listener.SeekToCurrentBatchErrorHandler;
+import org.springframework.kafka.listener.*;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.util.backoff.FixedBackOff;
@@ -167,6 +164,12 @@ public class MeasurementsConfig {
     @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "recovering")
     public BatchErrorHandler recoveringHandler() {
         return new RecoveringErrorHandler();
+    }
+
+    @Bean
+    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "stop-container")
+    public BatchErrorHandler containerStoppingHandler() {
+        return new ContainerStoppingBatchErrorHandler();
     }
 
 }

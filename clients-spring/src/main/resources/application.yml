@@ -45,6 +45,7 @@ measurements:
     # 'retry-with-backoff': Spring RetryingBatchErrorHandler with no configured ConsumerRecordRecoverer
     # 'retry-with-backoff-recovery': Spring RetryingBatchErrorHandler with custom ConsumerRecordRecoverer set, see RetryingErrorHandler.
     # 'recovering': Spring RecoveringBatchErrorHandler, see RecoveringErrorHandler.
+    # 'stop-container': Spring ContainerStoppingBatchErrorHandler
     error-handler: spring-default
 
     # Select whether deserialization exceptions of values should be handled:
