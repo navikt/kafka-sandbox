@@ -48,6 +48,15 @@ And if interested in Spring Kafka: https://docs.spring.io/spring-kafka/reference
 
 1. [Getting started](#getting-started)
 2. [Communication patterns with Kafka](#kafka-patterns)
+   1. [One to one](#kafka-one-to-one)
+   2. [One to many](#kafka-one-to-many)
+   3. [One time processing with parallel consumer group](#kafka-one-time-parallel)
+   4. [Many to many](#kafka-many-to-many)
+   5. [Consumer group rebalancing](#kafka-consumer-group-rebalancing)
+   6. [Many to one](#kafka-many-to-one)
+   7. [Error handling: broker goes down](#kafka-error-broker-down)
+   8. [Error handling: detecting message loss](#kafka-message-loss)
+   9. [Error handling: consumer dies](#kafka-consumer-dies)
 3. [The Spring Boot application](#spring-boot)
    1. [Running](#spring-running)
    2. [Web interfaces](#spring-web-interfaces)
@@ -60,6 +69,7 @@ And if interested in Spring Kafka: https://docs.spring.io/spring-kafka/reference
    9. [Batch consumer error handling in Spring Kafka: limited retries and recovery](#spring-batch-error-5)
    10. [What about transient failures when storing events ?](#spring-batch-error-6)
    11. [Handling failure to deserialize messages in batch consumer](#spring-batch-error-7)
+   12. [Stopping consumer on fatal errors](#spring-batch-error-8)
    
 4. [Tuning logging to get more details](#log-tuning)
 5. [Unit/integration tests with `DockerComposeEnv`](#integration-tests)
@@ -163,7 +173,7 @@ So a shell is not strictly required.
 *These examples assume that you have a local Kafka broker up and running on `localhost:9092`, 
 see [relevant section](#local-kafka).*
 
-### Example: one to one
+### Example: one to one                              <a name="kafka-one-to-one"/>
 
 This example is possibly the simplest case and can be easily demonstrated using
 the command line clients in kafka-sandbox.
@@ -241,7 +251,7 @@ received messages), you will notice that Kafka does a new rebalancing, and the
 previously idle consumer gets assigned back to the partition and starts
 receiving messages where the other one left off.
 
-### Example: one to many
+### Example: one to many                         <a name="kafka-one-to-many"/>
 
 One to many means that a single message produced on a topic is typically
 processed by any number of different consumer groups.
@@ -262,7 +272,7 @@ You will notice that all the consumer instances report the same messages and
 offsets after a short while. Because they are all in different consumer groups,
 they all see the messages that the single producer sends.
 
-### Example: one time message processing with parallel consumer group
+### Example: one time message processing with parallel consumer group       <a name="kafka-one-time-parallel"/>
 
 In this scenario, it is only desirable to process a message once, but it can be
 processed by any consumer in a consumer group.
@@ -319,7 +329,7 @@ Try to start another fourth consumer (same topic/group) and see what happens.
 (Hint: you will not gain anything wrt. message processing capacity.)
 
 
-### Many to many
+### Many to many                                         <a name="kafka-many-to-many"/>
 
 The previous example can also be considered a many to many example if more
 consumers are started in several active consumer groups. In that case, all the
@@ -327,7 +337,7 @@ messages produced will be handled in parallel by several different groups (but
 only once per group).
 
 
-### Consumer group rebalancing
+### Consumer group rebalancing                         <a name="kafka-consumer-group-rebalancing"/>
 
 You will notice log messages from the consumers whenever a consumer group
 rebalancing occurs. This typically happens when a consumer leaves or a new
@@ -335,7 +345,7 @@ consumer arrives. It will provide insight into how Kafka distributes messages
 amongst consumers in a group.
 
 
-### Many to one
+### Many to one                                       <a name="kafka-many-to-one"/>
 
 This example demonstrates a many-to-one case, where there are lots of producers
 collecting "temperature sensor events" and sending it to a common topic, while a
@@ -372,7 +382,7 @@ unfortunate events. Depending on business requirements, you will likely need to
 take proper care of exception handling and retry policies, to ensure no loss of
 events at either the producing or consuming end.
 
-### Error handling: broker goes down
+### Error handling: broker goes down                   <a name="kafka-error-broker-down"/>
 
 What happens to a producer/consumer when the broker suddenly stops responding ?
 In particular, what happens to the messages that are being sent ? Are they lost
@@ -433,7 +443,7 @@ http://kafka.apache.org/documentation.html#consumerconfigs
 
 http://kafka.apache.org/documentation.html#producerconfigs
 
-### Error handling: detecting message loss with sequence-producer/consumer
+### Error handling: detecting message loss with sequence-producer/consumer   <a name="kafka-message-loss"/>
 
 The 'sequence-producer' and corresponding 'sequence-consumer' commands can be
 used for simple detection of message loss or reordering. The producer will send
@@ -485,7 +495,7 @@ pipe the output of the start commands to `...|grep SEQ`, which will filter out
 the other log messages.
 
 
-### Error handling: consumer dies
+### Error handling: consumer dies                       <a name="kafka-consumer-dies"/>
 
 What happens within a consumer group when an active consumer suddenly becomes
 unavailable ?
@@ -903,6 +913,38 @@ between attempts to avoid flodding logs and using up a lot of resources.
 
 The best practice is to actually handle deserialization errors, like
 demonstrated earlier.
+
+### Stopping consumer on fatal errors            <a name="spring-batch-error-8"/>
+
+Sometimes an error is definitively not recoverable and some form of manual intervention or
+application restart is required. An example may be that the consumer is not authorized to write data to
+the target data store due to invalid credentials. In such cases you can look to
+`ContainerStoppingBatchErrorHandler` in Spring Kafka, which by default simply shuts down
+the consumer on any error thrown from the batch processing in the listener.
+By extending this class, you can test the type of error and delegate to the super class
+if the error is deemed fatal.
+
+To see how an *unmodified* `ContainerStoppingBatchErrorHandler` works, you can do the following:
+
+1. Ensure a poison pill message is present on topic:
+
+        ./clients.sh null-producer
+
+2. Start a regular producer and let it run:
+
+        ./clients.sh producer
+
+2. Start Spring boot app with `stop-container` error handler:
+
+        ./spring-boot.sh --measurements.consumer.error-handler=stop-container
+
+Check logs. You will see that as soon as the posion pill message is encountered the error
+handler kicks into action and stops the Spring message listener container. Then
+all activity stops and the topic-partition is unassigned from the consumer. As this app
+does not provide any way of re-starting the consumer, the app itself must be restarted to
+try again.
+
+### Further reading and experimentation
 
 You can investigate and modify code in `MeasurementsConfig` and in package
 `no.nav.kafka.sandbox.measurements.errorhandlers` to experiment further. Spring
