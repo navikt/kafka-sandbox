@@ -236,7 +236,7 @@ To observe what happens when a consumer disconnects and reconnects to the same t
 What happens when a second consumer joins ? Start a second consumer in a new
 terminal window:
 
-        ./clients.sh consumer measurements othergroup
+    ./clients.sh consumer measurements othergroup
         
 You will now notice that one of the two running consumers will stop receiving
 messages, and in that case the following message will appear:
@@ -595,7 +595,7 @@ In the previous scenario, try to artificically slow down the Spring application
 consumer and see what happens to the size of the batches that it consumes. To
 slow it down, start with the following arguments:
 
-        ./spring-boot.sh --measurements.consumer.slowdown=5000
+    ./spring-boot.sh --measurements.consumer.slowdown=5000
 
 This will make the Kakfa listener endpoint in
 `no.nav.kafka.sandbox.measurements.MeasurementsConsumer#receive` halt for 5
@@ -618,7 +618,7 @@ method.
 To produce more messages in parallel, you can start more producers in the
 background:
 
-        ./clients.sh producer &>/dev/null &
+    ./clients.sh producer &>/dev/null &
         
 As more producers start, you should notice the logged batch sizes increase,
 since volume of messages increases and the consumer is slowed down. (Note: to
