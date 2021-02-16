@@ -3,7 +3,7 @@
 # Only for display of record metadata. Formats timetamps in human readable form.
 # By default tails the topic, showing only the N latest records.
 
-VERSION = '0.1'
+VERSION = '0.2'
 
 import subprocess
 import sys
@@ -20,6 +20,26 @@ def check_kafkacat():
 def iso_from_ts(ts_epoch_millis):
     return datetime.fromtimestamp(int(ts_epoch_millis)/1000).isoformat(timespec='milliseconds')
 
+def kafkacat_list_topics(broker):
+    check_kafkacat()
+
+    with subprocess.Popen(['kafkacat', '-b', broker, '-L'],
+                          env={**os.environ.copy(), 'LC_MESSAGES':'C.UTF-8'},
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                          universal_newlines=True) as kcproc:
+
+        topicpattern = re.compile(r'\s*topic "([^"]+)" with (\d+) partitions:')
+        buf = []
+        for line in kcproc.stdout:
+            matchtopic = topicpattern.match(line)
+            if matchtopic:
+                topic = matchtopic.group(1)
+                partitions = matchtopic.group(2)
+                buf.append('{:<50}   ({} partitions)'.format(topic, partitions))
+
+        buf.sort()
+        for line in buf: print(line)
+                
 def kafkacat_tail(broker, topic, n, follow, offset):
     check_kafkacat()
 
@@ -63,9 +83,17 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--follow', action='store_true', default=False,
                         help='Keep following topic after reaching end (use CTRL+C to exit).')
     parser.add_argument('-n', type=int, help='Tail last N records from topic, or use negative number show all consumed records', default=10)
-    parser.add_argument('-o', '--offset', type=str, help='Pass on to kafkacat --offset option, for instance "--offsett beginning" to seek to start of topic before tailing')
+    parser.add_argument('-o', '--offset', type=str, help='Pass on to kafkacat --offset option, for instance "--offset beginning" to seek to start of topic before tailing')
+    parser.add_argument('-l', '--list', action='store_true', help='List topics available in broker')
     parser.add_argument('-v', '--version', action='version', version='%(prog)s '+VERSION)
-    parser.add_argument('topic', metavar='TOPIC', type=str)
+    parser.add_argument('topic', metavar='TOPIC', nargs='?', type=str)
     args = parser.parse_args()
-    
-    kafkacat_tail(args.broker, args.topic, args.n, args.follow, args.offset)
+
+    if args.list:
+        kafkacat_list_topics(args.broker)
+    elif args.topic:
+        kafkacat_tail(args.broker, args.topic, args.n, args.follow, args.offset)
+    else:
+        sys.stderr.write('Error: a TOPIC required\n')
+        parser.print_help()
+        
