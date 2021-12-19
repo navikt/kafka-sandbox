@@ -4,8 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.net.ServerSocketFactory;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.*;
 import java.nio.file.Path;
 import java.util.*;
@@ -14,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -325,23 +325,89 @@ public final class DockerComposeEnv implements AutoCloseable {
         dockerCompose("down", "--volumes").start().onExit().get(120, TimeUnit.SECONDS);
     }
 
+    static class DockerComposeExecutable {
+        public final String executable;
+        public final String version;
+
+        public DockerComposeExecutable(String executable, String version) {
+            this.executable = Objects.requireNonNull(executable);
+            this.version = Objects.requireNonNull(version);
+        }
+
+        public List<String> executableAndDefaultArgs() {
+            return compareVersions(version, "1.29") < 0 ?
+                    List.of(executable, "--no-ansi") :
+                    List.of(executable, "--ansi", "never"); // docker-compose v1.29 or newer.
+        }
+
+        private static int compareVersions(String v1, String v2) {
+            List<Integer> v1Components = Arrays.stream(v1.split("\\."))
+                    .map(n -> Integer.parseInt(n)).collect(Collectors.toList());
+            List<Integer> v2Components = Arrays.stream(v2.split("\\."))
+                    .map(n -> Integer.parseInt(n)).collect(Collectors.toList());
+
+            final int maxLength = Math.max(v1Components.size(), v2Components.size());
+            for (int i=0; i<maxLength; i++) {
+                Integer number1 = i < v1Components.size() ? v1Components.get(i) : 0;
+                Integer number2 = i < v2Components.size() ? v2Components.get(i) : 0;
+                if (number1 != number2) {
+                    return number1.compareTo(number2);
+                }
+            }
+            return 0;
+        }
+    }
+
+    private static DockerComposeExecutable findExecutable() {
+        for (final String executable : new String[] {
+                "/usr/bin/docker-compose",
+                "/usr/local/bin/docker-compose",
+                "/usr/local/sbin/docker-compose",
+                "docker-compose",
+                "docker-compose.exe"}) {
+            try {
+                Process process = new ProcessBuilder(executable, "--version")
+                        .redirectError(ProcessBuilder.Redirect.DISCARD)
+                        .start();
+
+                InputStream is = process.getInputStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                final String firstLineOutput = reader.readLine();
+                while (reader.readLine() != null); // Consume and discard rest of process output
+                reader.close();
+
+                if (process.onExit().get().exitValue() == 0 && firstLineOutput != null) {
+                    Matcher matcher = Pattern.compile("version ([0-9\\.]+)").matcher(firstLineOutput);
+                    if (! matcher.find()) {
+                        continue;
+                    }
+                    final String version = matcher.group(1);
+                    return new DockerComposeExecutable(executable, version);
+                }
+            } catch (Exception e) {
+            }
+        }
+        throw new IllegalStateException("Could not find or execute docker-compose command on operating system");
+    }
+
     /**
      * Test if docker-compose can be executed
      * @return {@code true} on success
      */
     public static boolean dockerComposeAvailable() {
         try {
-            findDockerComposeExecutableName();
+            findExecutable();
             return true;
         } catch (Exception e) {
             return false;
         }
     }
 
-    private ProcessBuilder dockerCompose(String...composeCommandAndArgs) throws Exception {
-        List<String> commandArgs = new ArrayList<>();
-        commandArgs.addAll(List.of(findDockerComposeExecutableName(), "--no-ansi", "--log-level", "ERROR"));
-        commandArgs.addAll(List.of("-f", composeFileAsPath(this.configFile).toString(), "-p", dockerComposeProjectName()));
+    private ProcessBuilder dockerCompose(String...composeCommandAndArgs) {
+        DockerComposeExecutable dcExec = findExecutable();
+        log.debug("docker compose command is {}, version {}", dcExec.executable, dcExec.version);
+        List<String> commandArgs = new ArrayList<>(dcExec.executableAndDefaultArgs());
+        commandArgs.addAll(List.of("-f", Path.of(this.configFile).toString(), "-p", dockerComposeProjectName()));
         commandArgs.addAll(Arrays.asList(composeCommandAndArgs));
         ProcessBuilder pb = new ProcessBuilder(commandArgs);
         this.env.forEach((k,v) -> {
@@ -360,23 +426,6 @@ public final class DockerComposeEnv implements AutoCloseable {
 
     private String dockerComposeProjectName() {
         return "DockerComposeEnv-test-" + obtainPid();
-    }
-
-    private static Path composeFileAsPath(String filePath) {
-        return Path.of(filePath);
-    }
-
-    private static String findDockerComposeExecutableName() {
-        for (String executable : List.of("/usr/bin/docker-compose", "/usr/local/bin/docker-compose", "/usr/local/sbin/docker-compose",
-                "docker-compose", "docker-compose.exe")) {
-            try {
-                if (new ProcessBuilder(executable, "--version").start().onExit().get().exitValue() == 0) {
-                    return executable;
-                }
-            } catch (Exception io) {
-            }
-        }
-        throw new IllegalStateException("Could not find or execute docker-compose command on operating system");
     }
 
     private static long obtainPid() {
