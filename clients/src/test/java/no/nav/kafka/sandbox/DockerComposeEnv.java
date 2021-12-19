@@ -370,14 +370,13 @@ public final class DockerComposeEnv implements AutoCloseable {
                         .redirectError(ProcessBuilder.Redirect.DISCARD)
                         .start();
 
-                InputStream is = process.getInputStream();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
                 final String firstLineOutput = reader.readLine();
                 while (reader.readLine() != null); // Consume and discard rest of process output
                 reader.close();
 
                 if (process.onExit().get().exitValue() == 0 && firstLineOutput != null) {
-                    Matcher matcher = Pattern.compile("version ([0-9\\.]+)").matcher(firstLineOutput);
+                    Matcher matcher = Pattern.compile("version ([0-9.]+)").matcher(firstLineOutput);
                     if (! matcher.find()) {
                         continue;
                     }
