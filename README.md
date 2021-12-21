@@ -676,8 +676,8 @@ changing the number of partitions on the `measurements` topic:
 
 ### Experiment: default batch consumer error handling in Spring Kafka        <a name="spring-batch-error-1"/>
 
-*For the following experiments, you should ensure the Spring Boot app is
-_stopped_ before following the instructions.*
+_For the following experiments, you should ensure the Spring Boot app is
+*stopped* before following the instructions._
 
 #### Thoughts about error handling 
 
