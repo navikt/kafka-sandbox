@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -63,10 +64,12 @@ public class JsonMessageProducer<T> {
             try {
                 T message = messageSupplier.get();
                 String key = keyFunction.apply(message);
-
                 sendStrategy.send(key, message, recordMetadata -> sendCount.incrementAndGet());
             } catch (InterruptException kafkaInterrupt) {
                 // Expected on shutdown from console
+            } catch (NoSuchElementException depleted) {
+                // Supplier is depleted
+                break;
             } catch (Exception ex) {
                 log.error("Unexpected error when sending to Kafka", ex);
             }

@@ -3,8 +3,13 @@ package no.nav.kafka.sandbox.messages;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 public class Measurements {
 
@@ -78,14 +83,39 @@ public class Measurements {
         }
     }
 
-    // Produces one synthentic temp event every 1-2 seconds
-    public static SensorEvent acquireTemperatureSensorMeasurement() {
-        // Throttling and some variance in timing
-        try {
-            Thread.sleep((long) (Math.random() * 1000) + 1000);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-        }
+    /**
+     * @param maxNumberOfElements max number of elements to supply
+     * @return a sensor event supplier providing up to n values.
+     * @throws NoSuchElementException when no more events can be supplied.
+     */
+    public static Supplier<SensorEvent> eventSupplier(final int maxNumberOfElements) {
+        final AtomicInteger counter = new AtomicInteger();
+        return () -> {
+            if (counter.incrementAndGet() > maxNumberOfElements) {
+                throw new NoSuchElementException("No more data can be supplied");
+            }
+            return generateEvent();
+        };
+    }
+
+    /**
+     * @return a sensor event supplier providing infinite number of values with a delay.
+     */
+    public static Supplier<SensorEvent> delayedInfiniteEventSupplier() {
+        return () -> {
+            try {
+                Thread.sleep((long) (Math.random() * 1000) + 1000);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+            return generateEvent();
+        };
+    }
+
+    /**
+     * @return a single random sensor event
+     */
+    public static SensorEvent generateEvent() {
         final int temp = (int)(Math.random()*20 + 19);
         return new SensorEvent("sensor-" + ProcessHandle.current().pid(),
                 "temperature", "celcius", LocalDateTime.now(), temp);

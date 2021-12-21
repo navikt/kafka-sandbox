@@ -16,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -51,6 +50,7 @@ public class Bootstrap {
 
         if (args.isEmpty() || args.get(0).isBlank() || args.contains("-h") || args.get(0).contains("--help")) {
             System.err.println("Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'");
+            System.err.println("Use: 'produce N [TOPIC [P]]' to produce exactly N measurements to topic with no delay");
             System.err.println("Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'");
             System.err.println("Use: 'sequence-producer [TOPIC [P]]' or 'sequence-consumer [TOPIC [GROUP]]'");
             System.err.println("Use: 'null-producer [TOPIC [P]]' to produce a single message with null value");
@@ -80,6 +80,10 @@ public class Bootstrap {
 
                 case "producer":
                     measurementProducer(args);
+                    break;
+
+                case "produce":
+                    measurementProduceFinite(args);
                     break;
 
                 case "consumer":
@@ -153,7 +157,17 @@ public class Bootstrap {
     private static void measurementProducer(Queue<String> args) {
         String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
         Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
-        jsonProducer(topic, partition, Measurements::acquireTemperatureSensorMeasurement, m -> m.getDeviceId());
+        jsonProducer(topic, partition, Measurements.delayedInfiniteEventSupplier(), m -> m.getDeviceId());
+    }
+
+    private static void measurementProduceFinite(Queue<String> args) {
+        if (args.isEmpty()) {
+            throw new IllegalArgumentException("Missing number of messages to produce");
+        }
+        Integer n = Integer.parseInt(args.remove());
+        String topic = args.isEmpty() ? MEASUREMENTS_TOPIC : args.remove();
+        Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
+        jsonProducer(topic, partition, Measurements.eventSupplier(n), m -> m.getDeviceId());
     }
 
     private static void measurementConsumer(Queue<String> args) {
