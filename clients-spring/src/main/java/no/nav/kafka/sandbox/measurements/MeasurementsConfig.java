@@ -3,7 +3,7 @@ package no.nav.kafka.sandbox.measurements;
 import no.nav.kafka.sandbox.data.DefaultEventStore;
 import no.nav.kafka.sandbox.data.EventStore;
 import no.nav.kafka.sandbox.data.EventStoreWithFailureRate;
-import no.nav.kafka.sandbox.measurements.errorhandlers.IgnoreErrorHandler;
+import no.nav.kafka.sandbox.data.EventStoreWithFailureRate.FixedFailSuccessCountPattern;
 import no.nav.kafka.sandbox.measurements.errorhandlers.RecoveringErrorHandler;
 import no.nav.kafka.sandbox.measurements.errorhandlers.RetryingErrorHandler;
 import no.nav.kafka.sandbox.messages.Measurements.SensorEvent;
@@ -36,8 +36,7 @@ import java.util.function.Function;
  * <p>The configuration of Kafka consumer aspects is based on config from {@code src/main/resources/application.yml} with specific
  * overrides done manually in this configuration class.</p>
  *
- * <p>Error handling strategies can be customized by setting value of property <code>measurements.consumer.error-handler</code>
- * </p>.
+ * <p>Error handling strategies can be customized by setting value of property <code>measurements.consumer.error-handler</code></p>.
  */
 @Configuration
 public class MeasurementsConfig {
@@ -57,11 +56,19 @@ public class MeasurementsConfig {
      */
     @Bean
     public EventStore<SensorEvent> sensorEventStore(@Value("${measurements.event-store.max-size:200}") int maxSize,
-                                                    @Value("${measurements.event-store.failure-rate:0.0}") float failureRate,
+                                                    @Value("${measurements.event-store.failure-rate:0.0}") String failureRateSpec,
                                                     @Value("${measurements.event-store.fail-on-max-size:false}") boolean failOnMaxSize,
                                                     Function<SensorEvent, Throwable> exceptionSupplier) {
+        if (failureRateSpec.contains("/")) {
+            return new EventStoreWithFailureRate<>(maxSize, failOnMaxSize,
+                    FixedFailSuccessCountPattern.fromSpec(failureRateSpec), exceptionSupplier);
+        }
+
+        float failureRate = Float.parseFloat(failureRateSpec);
+
         if (failureRate > 0) {
-            return new EventStoreWithFailureRate<>(maxSize, failOnMaxSize, failureRate, exceptionSupplier);
+            return new EventStoreWithFailureRate<>(maxSize, failOnMaxSize,
+                    new EventStoreWithFailureRate.AverageRatioRandom(failureRate), exceptionSupplier);
         } else {
             return new DefaultEventStore<>(maxSize, failOnMaxSize);
         }
@@ -73,7 +80,8 @@ public class MeasurementsConfig {
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, SensorEvent> measurementsListenerContainer(
             ConsumerFactory<String, SensorEvent> consumerFactory,
-            Optional<BatchErrorHandler> errorHandler,
+            Optional<CommonErrorHandler> errorHandler,
+            Optional<BatchErrorHandler> legacyErrorHandler, // just temporary, since we still have legacy error handlers in config
             @Value("${measurements.consumer.handle-deserialization-error:true}") boolean handleDeserializationError) {
 
         // Consumer configuration from application.yml, where we will override some properties:
@@ -92,7 +100,10 @@ public class MeasurementsConfig {
 
         if (errorHandler.isPresent()) {
             LOG.info("Using error handler: {}", errorHandler.get().getClass().getSimpleName());
-            factory.setBatchErrorHandler(errorHandler.get());
+            factory.setCommonErrorHandler(errorHandler.get());
+        } else if (legacyErrorHandler.isPresent()) {
+            LOG.info("Using legacy error handler: {}", legacyErrorHandler.get().getClass().getSimpleName());
+            factory.setBatchErrorHandler(legacyErrorHandler.get());
         } else {
             LOG.info("Using Spring Kafka default error handler");
         }
@@ -129,10 +140,17 @@ public class MeasurementsConfig {
 
     @Bean
     @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "ignore")
-    public BatchErrorHandler ignoreHandler() {
-        return new IgnoreErrorHandler();
+    public CommonErrorHandler ignoreHandler() {
+        return new CommonLoggingErrorHandler();
     }
 
+    @Bean
+    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "infinite-retry")
+    public CommonErrorHandler infiniteRetryHandler() {
+        return new DefaultErrorHandler(new FixedBackOff(FixedBackOff.DEFAULT_INTERVAL, FixedBackOff.UNLIMITED_ATTEMPTS));
+    }
+
+    // TODO: upgrade to non-deprecated common class of error handlers with similar behaviour:
     @Bean
     @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "seek-to-current")
     public BatchErrorHandler seekToCurrentHandler() {

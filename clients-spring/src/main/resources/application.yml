@@ -30,7 +30,12 @@ measurements:
     # set to true to fail instead of discarding old elements when event store is full (test Kafka error handling for a persistent error)
     fail-on-max-size: false
     # set how often store writes should fail (to test Kafka consumer error handling for errors occuring sometimes)
+    # Can be in two different forms:
+    # 1. floating point number between 0.0 and 1.0, where failure will occur randomly at approximately this ratio.
+    # 2. Two numbers x/y, where x denotes number of times to fail and y denotes total number of times for a cycle, before the
+    #    failure pattern repeats. E.g "9/10" will cause 9 consequtive failures and one success, before it repeats.
     failure-rate: 0.0
+
   consumer:
     topic: measurements
 
@@ -39,7 +44,8 @@ measurements:
 
     # Select error handler:
     # 'spring-default': just uses the Spring default for batch error handling (does not explicitly set an error handler).
-    # 'ignore':  logs, but ignores all errors from consumer, implemented in class IgnoreErrorHandler.
+    # 'ignore':  logs, but ignores all errors from consumer, implemented in Spring error handler CommonLoggingErrorHandler.
+    # 'infinite-retry': tries failed batches an infinite number of times, with a backoff/delay between each attempt. Spring DefaultErrorHandler with a BackOff.
     # 'seek-to-current': Spring SeekToCurrentBatchErrorHandler w/all defaults and no backoff (unlimited retries)
     # 'seek-to-current-with-backoff': Spring SeekToCurrentBatchErrorHandler w/fixed delay and max 2 retries.
     # 'retry-with-backoff': Spring RetryingBatchErrorHandler with no configured ConsumerRecordRecoverer
