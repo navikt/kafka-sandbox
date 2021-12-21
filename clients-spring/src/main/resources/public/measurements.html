@@ -70,13 +70,25 @@
         }
 
         document.getElementById('measurements').replaceWith(tbody);
-        document.getElementById('count').innerText = tbody.children.length;
+        document.getElementById('count').innerText = tbody.children.length.toString();
+    }
+    function clearTable() {
+        const tbody = document.getElementById('measurements');
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+        document.getElementById('count').innerText = '0';
     }
     function fetchMessages(since) {
         return fetch('/measurements/api' + (since ? '?after='+since : ''), { cache: 'no-cache' });
     }
     let latest = null;
+    let loading = false;
     function update() {
+        if (loading) {
+            return;
+        }
+        loading = true;
         fetchMessages(latest).then((res) => {
             return res.json();
         }).then((measurements) => {
@@ -84,6 +96,11 @@
                 latest = measurements[measurements.length-1].timestamp;
             }
             appendToTable(measurements);
+        }).catch((e) => {
+            clearTable();
+            latest = null;
+        }).finally(() => {
+            loading = false;
         });
     }
     setInterval(update, 1000);
