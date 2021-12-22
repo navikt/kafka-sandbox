@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+cd "$(dirname "$0")"
+
+if ! test -f messages/target/messages-*.jar -a -f clients/target/clients-*.jar; then
+    mvn -B install
+fi
+
+exec java -jar clients/target/clients-*.jar "$@"

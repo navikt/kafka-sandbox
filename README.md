@@ -21,16 +21,22 @@
 - Even though not the primary purpose of this project: Learn about Java module
   system and modular Maven builds.
   
+It is important to note that this is not a complete guide to Kafka or Spring
+Kafka in any sense. It can however serve as a base setup (or "sandbox") which
+will enable you to quickly experiment with Kafka clients and Spring Kafka.
+Things can get really complicated, and sometimes you need to actually test how
+things work in a small and controlled environment, to understand the technology
+and apply it correctly in real production scenarios.
 
 ## Requirements
 
 - [JDK 11+][1]
-- [Maven][2] 3.6.X (must be able to handle modular Java project)
+- [Maven][2] 3.6.X+ (must be able to handle modular Java project)
 - A working [Docker][3] installation on localhost ([Docker for Windows][4] is fine), and
   [docker-compose][5].
 - A unix-like shell is very handy, but not a strict requirement.
 
-[1]: https://adoptopenjdk.net/
+[1]: https://adoptium.net/archive.html
 [2]: https://maven.apache.org/
 [3]: https://www.docker.com/
 [4]: https://docs.docker.com/docker-for-windows/install/
@@ -43,13 +49,6 @@ https://kafka.apache.org/documentation/#gettingStarted
 This page explains a lot of concepts which are useful to know about beforehand.
 
 And if interested in Spring Kafka: https://docs.spring.io/spring-kafka/reference/html/
-
-It is important to note that this is not a complete guide to Kafka or Spring
-Kafka in any sense. It can however serve as a base setup (or "sandbox") which
-will enable you to quickly experiment with Kafka clients and Spring Kafka.
-Things can get really complicated, and sometimes you need to actually test how
-things work in a small and controlled environment, to understand the technology
-and apply it correctly in real production scenarios.
 
 ## Index
 
@@ -107,8 +106,8 @@ tests actually spin up Kafka on localhost, and so take a while to complete. To
 skip the tests during development iterations, use `mvn install -DskipTests`
 instead.
 
-The jar-file can be executed simply by running `./clients.sh` from the project
-top directory, or alternatively using `java -jar clients/target/clients*.jar`.
+The jar-file can be executed simply by running `./run` from the project
+top directory, or alternatively using `java -jar clients/target/clients-*.jar`.
 
 ### Running a Kafka environment on localhost             <a name="local-kafka"/>
 
@@ -123,8 +122,8 @@ the kafka-sandbox project directory:
 
 To get started:
 
-    $ chmod +x clients.sh
-    $ ./clients.sh --help
+    $ chmod +x run
+    $ ./run --help
     Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'
     Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'
     Use: 'sequence-producer [TOPIC [P]]' or 'sequence-consumer [TOPIC [GROUP]]'
@@ -137,8 +136,9 @@ To get started:
     Default consumer group is 'console'
     Kafka broker is localhost:9092
 
-(The run script will trigger a Maven build if no JAR file exists in
-`clients/target/`.)
+*Note: after code changes, you should rebuild the project with `mvn install` so
+that executable jars are updated. The convenience run scripts will not
+automatically perform rebuilds.*
 
 The producer and consumer modes are paired according to the type of messages
 they can exchange. The default 'producer' creates synthentic "temperature
@@ -189,7 +189,7 @@ We will use the default topic with a single partition:
 
 *In terminal 1:*
 
-    ./clients.sh producer
+    ./run producer
 
 The producer will immediately start sending messages to the Kafka topic
 'measurements'. Since this default topic only has one partition, the exact place
@@ -198,7 +198,7 @@ partition 0 for the topic.
 
 *In terminal 2:*
 
-    ./clients.sh consumer
+    ./run consumer
     
 The consumer will connect to Kafka and starting polling for messages. It will
 display the messages in the console as they arrive. The consumer subscribes to
@@ -233,7 +233,7 @@ To observe what happens when a consumer disconnects and reconnects to the same t
    because the consumer group offset is stored server side.
 3. Kill the consumer again, and restart with a different (new) consumer group:
 
-        ./clients.sh consumer measurements othergroup
+        ./run consumer measurements othergroup
         
    Notice how it now starts displaying messages from the very beginning of the
    topic (offset 0). This is because no previous offset has been stored for the
@@ -243,7 +243,7 @@ To observe what happens when a consumer disconnects and reconnects to the same t
 What happens when a second consumer joins ? Start a second consumer in a new
 terminal window:
 
-    ./clients.sh consumer measurements othergroup
+    ./run consumer measurements othergroup
         
 You will now notice that one of the two running consumers will stop receiving
 messages, and in that case the following message will appear:
@@ -265,15 +265,15 @@ processed by any number of different consumer groups.
 
 Initialize a new topic with 1 partition and start a producer:
 
-    ./clients.sh newtopic one_to_many 1
+    ./run newtopic one_to_many 1
 
-    ./clients.sh producer one_to_many
+    ./run producer one_to_many
 
     
 And fire up as many consumers as desired in new terminal windows, but increment
 the group number N for each one:
 
-    ./clients.sh consumer one_to_many group-N
+    ./run consumer one_to_many group-N
     
 You will notice that all the consumer instances report the same messages and
 offsets after a short while. Because they are all in different consumer groups,
@@ -286,15 +286,15 @@ processed by any consumer in a consumer group.
 
 Create a topic with 3 partitions:
 
-    ./clients.sh newtopic any_once 3
+    ./run newtopic any_once 3
     
 Start three producers in three terminals, one for each partition:
 
-    ./clients.sh producer any_once 0
+    ./run producer any_once 0
 
-    ./clients.sh producer any_once 1
+    ./run producer any_once 1
 
-    ./clients.sh producer any_once 2
+    ./run producer any_once 2
 
 Here we are explicitly specifying which partition each producer should write to,
 so that we ensure an even distribution of messages for the purpose of this
@@ -310,14 +310,14 @@ Next, we are going to start consumer processes.
 
 Begin with a single consumer:
 
-    ./clients.sh consumer any_once group
+    ./run consumer any_once group
     
 You will notice that this first consumer gets assigned all three partitions on
 the topic and starts displaying received messages.
 
 Let's scale up to another consumer. Run in a new terminal:
 
-    ./clients.sh consumer any_once group
+    ./run consumer any_once group
 
 When this consumer joins, you can see rebalancing messages, and it will be
 assigned one or two partitions from the topic, while the first is removed from
@@ -326,7 +326,7 @@ running consumers.
 
 Scale further by starting a third consumer in a new terminal:
 
-    ./clients.sh consumer any_once group
+    ./run consumer any_once group
 
 After the third one joins, a new rebalancing will occur and they will each have
 one partition assigned. Now the load is divided evenly and messages are
@@ -360,11 +360,11 @@ single consumer is responsible for processing the messages.
 
 Start a single consumer for topic 'manydevices':
 
-    ./clients.sh consumer manydevices
+    ./run consumer manydevices
 
 Start 10 producers by executing the following command 10 times:
 
-    $ ./clients.sh producer manydevices 1>/dev/null 2>&1 &
+    $ ./run producer manydevices 1>/dev/null 2>&1 &
     [x10..]
     
 The producers will be started in the background by the shell and the output is
@@ -399,10 +399,10 @@ Here is a recipe to experiment with such scenarios.
 
 Run a producer and a consumer in two windows:
 
-    $ ./clients.sh producer
+    $ ./run producer
     [...]
     
-    $ ./clients.sh consumer
+    $ ./run consumer
     [...]
     
 Then pause the docker container with the broker to simulate that it stops
@@ -461,7 +461,7 @@ so that it is easy to spot.
 
 Start the producer:
 
-    ./clients.sh sequence-producer
+    ./run sequence-producer
     
 It will start at sequence number 0. If you restart, it will continue from where
 was last stopped, since the next sequence number is persisted to a temporary
@@ -470,7 +470,7 @@ file. (To reset this, stop the sequence-producer and remove the file
 
 Now start the corresponding consumer:
 
-    ./clients.sh sequence-consumer
+    ./run sequence-consumer
     
 It will read the sequence numbers already on the topic and log its state upon
 every message reception. You should see that the sequence is "in sync" and that
@@ -509,11 +509,11 @@ unavailable ?
 
 Start a producer and two consumers with a simple 1 partition topic:
 
-    ./clients.sh producer sometopic
+    ./run producer sometopic
     
 Then two consumers in other terminal windows:
 
-    ./clients.sh consumer sometopic group
+    ./run consumer sometopic group
     
 You will notice that one of the consumers is idle (no "untaken" partitions in
 consumer group), and the other one is assigned the active partition and is
@@ -538,13 +538,17 @@ The Spring Boot application is in Maven module `clients-spring/`.
 
     mvn install              # in top project directory to ensure module 'messages' is installed
     cd clients-spring
-    mvn spring-boot:run
+    java -jar target/clients-spring-*-exec.jar
 
-.. or use the convenience script `spring-boot.sh` from project top level
+.. or use the convenience script `boot-app` from project top level
 directory, which is used in all examples:
 
-    chmod +x spring-boot.sh
-    ./spring-boot.sh
+    chmod +x boot-app
+    ./boot-app
+    
+*Note: after code changes, you should rebuild the project with `mvn install` so
+that executable jars are updated. The convenience run scripts will not
+automatically perform rebuilds.*
 
 The application will automatically subscribe to and start consuming messages
 from the topics `measurements` (the standard producer in previous examples) and
@@ -589,7 +593,7 @@ available at http://localhost:8080/messages/api
 2. In another terminal, from project root dir, start the command line console
    message producer:
 
-        $ ./clients.sh console-message-producer
+        $ ./run console-message-producer
         36 [main] INFO Bootstrap - New producer with PID 19445
         191 [main] INFO JsonMessageProducer - Start producer loop
         Send messages to Kafka, use CTRL+D to exit gracefully.
@@ -606,7 +610,7 @@ available at http://localhost:8080/messages/api
 
 2. In another terminal, start a measurement producer: 
 
-        ./clients.sh producer
+        ./run producer
 
 3. Navigate your web browser to http://localhost:8080/measurements.html
 
@@ -620,7 +624,7 @@ In the previous scenario, try to artificically slow down the Spring application
 consumer and see what happens to the size of the batches that it consumes. To
 slow it down, start with the following arguments:
 
-    ./spring-boot.sh --measurements.consumer.slowdown=5000
+    ./boot-app --measurements.consumer.slowdown=5000
 
 This will make the Kakfa listener endpoint in
 `no.nav.kafka.sandbox.measurements.MeasurementsConsumer#receive` halt for 5
@@ -643,7 +647,7 @@ method.
 To produce more messages in parallel, you can start more producers in the
 background:
 
-    ./clients.sh producer &>/dev/null &
+    ./run producer &>/dev/null &
         
 As more producers start, you should notice the logged batch sizes increase,
 since volume of messages increases and the consumer is slowed down. (Note: to
@@ -653,7 +657,7 @@ $(jobs -p)`.)
 You could also produce 1000 messages with no delay, to really see batch size
 increase on the consumer side:
 
-    ./clients.sh produce 1000
+    ./run produce 1000
 
 Going further, you can test true parallel messages consumption in Spring, by
 changing the number of partitions on the `measurements` topic:
@@ -661,9 +665,9 @@ changing the number of partitions on the `measurements` topic:
 1. Stop Spring Boot application and any running command line producer/consumer
    clients.
 
-2. Delete measurements topic: `./clients.sh deltopic measurements`. 
+2. Delete measurements topic: `./run deltopic measurements`. 
 
-3. Create new measurements topic with 4 partitions: `./clients.sh newtopic measurements 4`
+3. Create new measurements topic with 4 partitions: `./run newtopic measurements 4`
 
 4. Start Spring boot application as described earlier.
 
@@ -713,8 +717,8 @@ saves events to should fail, randomly distributed. Or it can be specified as
 store will cause an exception to be thrown which will trigger Spring kafka
 consumer error handling.
 
-You can also simulate bad messages by using `./clients.sh null-producer` or
-`./clients.sh string-producer "{bad-json"` (will cause deserialization failure
+You can also simulate bad messages by using `./run null-producer` or
+`./run string-producer "{bad-json"` (will cause deserialization failure
 in Spring Boot app).
 
 
@@ -722,11 +726,11 @@ Try this:
 
 1. Ensure a producer for 'measurements' topic is running:
 
-        ./clients.sh producer
+        ./run producer
         
 2. Start Spring Boot app in another terminal with:
 
-        ./spring-boot.sh --measurements.event-store.failure-rate=1
+        ./boot-app --measurements.event-store.failure-rate=1
         
 Now all (100%) store operations will fail with `IOException`. See what happens
 in the application log. Error handling is all Spring Kafka defaults. Does Spring
@@ -738,13 +742,13 @@ Next we can try to determine the default error resilience of the consumer.
 1. Ensure all producers and Spring Boot app are stopped. Clear measurements
    topic and produce exactly 100 records:
 
-        ./clients.sh deltopic measurements
-        ./clients.sh produce 100
+        ./run deltopic measurements
+        ./run produce 100
 
 2. Then start Spring Boot app and set event store failure rate to 5/10, meaning 5
    errors, then 5 successful stores, and so on:
 
-        ./spring-boot.sh --measurements.event-store.failure-rate=5/10
+        ./boot-app --measurements.event-store.failure-rate=5/10
 
 In the app logs you will notice that the consumer receives all 100 records per
 batch attempt, which is logged by `MeasurementsConsumer`. This happens multiple
@@ -770,7 +774,7 @@ attempts to redeliver failed batches ?
 
 You can use an error handler which ignores errors, but still logs them:
 
-    ./spring-boot.sh --measurements.event-store.failure-rate=1 --measurements.consumer.error-handler=ignore
+    ./boot-app --measurements.event-store.failure-rate=1 --measurements.consumer.error-handler=ignore
 
 Start a producer and watch Spring Boot log. You'll see that batches are logged
 as errors, but never retried. Spring Kafka progresses; it logs the failed
@@ -783,11 +787,11 @@ Try this:
 
 1. Start Spring Boot app with infinite retry error handler:
 
-        ./spring-boot.sh --measurements.consumer.error-handler=infinite-retry
+        ./boot-app --measurements.consumer.error-handler=infinite-retry
 
 2. In another terminal, send a single null-message to the "measurements" topic:
 
-        ./clients.sh null-producer measurements
+        ./run null-producer measurements
 
 This message will fail in the consumer with a `NullPointerException`, since
 messages with a `null` value are not accepted by the consumer (although they are
@@ -812,18 +816,18 @@ with Spring Kafka 2.8.
 Note that if you have messages on a topic that cause failures and you want to
 start fresh for a new experiment, you can just delete the topics first:
 
-    ./clients.sh deltopic measurements
-    ./clients.sh deltopic messages
+    ./run deltopic measurements
+    ./run deltopic messages
 
 Now try this:
 
 1. Start Spring Boot app with error handling that should give up after 2 retries:
 
-        ./spring-boot.sh --measurements.consumer.error-handler=seek-to-current-with-backoff
+        ./boot-app --measurements.consumer.error-handler=seek-to-current-with-backoff
 
 2. In another terminal, send a single null-message to the 'measurements' topic:
 
-        ./clients.sh null-producer measurements
+        ./run null-producer measurements
 
 Does Spring ever give up retrying the failing batch ? What is the delay between
 retry attempts ? Watch the log from the Spring Boot app.
@@ -842,26 +846,26 @@ here.
 
 Try this:
 
-1. Clear topic measurements with `./clients.sh deltopic measurements`.
+1. Clear topic measurements with `./run deltopic measurements`.
 
 2. Produce 3 measurements to the topic:
 
-        ./clients.sh produce 3
+        ./run produce 3
         
 3. Send a poison pill `null` message to the measurements topic:
 
-        ./clients.sh null-producer measurements
+        ./run null-producer measurements
         
 4. Send 3 more valid measurement events:
 
-        ./clients.sh produce 3
+        ./run produce 3
         
     After quitting there will be somewhere between 7 messages present on the
     topic, including the `null` message in the middle.
 
 5. Start Spring Boot app with retrying error handler that should give up after 2 retries:
 
-        ./spring-boot.sh --measurements.consumer.error-handler=retry-with-backoff
+        ./boot-app --measurements.consumer.error-handler=retry-with-backoff
 
 Watch the logs. The batch is processed multiple times by `MeasurementsConsumer`,
 however it gives up after two retries, since the `null` message will cause a
@@ -906,7 +910,7 @@ Try this:
    
 2. Start Spring Boot app with the recovering error handler:
 
-        ./spring-boot.sh --measurements.consumer.error-handler=recovering
+        ./boot-app --measurements.consumer.error-handler=recovering
         
 Notice in the the logs as the consumer first reports receiving the batch of
 messages. An exception is thrown because of the `null` message. The next time
@@ -939,16 +943,16 @@ which record in the batch failed. The error handler will take care of the rest.
 
 You can try this of course:
 
-1. Ensure our test topic is empty with `./clients.sh deltopic measurements`.
+1. Ensure our test topic is empty with `./run deltopic measurements`.
 
 2. Start Spring boot app with an event store that sometimes fail and using
    the recovering error handler:
 
-        ./spring-boot.sh --measurements.consumer.error-handler=recovering --measurements.event-store.failure-rate=0.5
+        ./boot-app --measurements.consumer.error-handler=recovering --measurements.event-store.failure-rate=0.5
 
 3. Start a producer in another terminal:
 
-        ./clients.sh producer
+        ./run producer
 
 4. Let it run for a little while and watch Spring Boot app logs. You will see
    errors when event store fails.
@@ -976,11 +980,11 @@ Test it out:
 
 1. Start Spring boot app:
 
-        ./spring-boot.sh
+        ./boot-app
         
 2. Then send badly formatted data to the 'measurements' topic:
 
-        ./clients.sh string-producer '}badjson' measurements
+        ./run string-producer '}badjson' measurements
         
 Watch logs in Spring boot app. You'll see an error logged with information about
 the record that failed. This is accomplished by using Spring-Kafka
@@ -992,11 +996,11 @@ Now try disabling handling of deserialization errors:
 
 1. Start Spring boot app:
 
-        ./spring-boot.sh --measurements.consumer.handle-deserialization-error=false
+        ./boot-app --measurements.consumer.handle-deserialization-error=false
         
 2. Send badly formatted data to the 'measurements' topic:
 
-        ./clients.sh string-producer '}badjson' measurements
+        ./run string-producer '}badjson' measurements
 
 You will notice that the Spring boot app now behaves in an undesirable way, both
 because it will never progress past the bad record (unless it is unassigned from
@@ -1007,7 +1011,7 @@ so the listener container keeps failing over and over rapidly.
 To improve things slightly, you can select an error handler that does
 backoff-delaying, like `recovering`:
 
-    ./spring-boot.sh --measurements.consumer.handle-deserialization-error=false --measurements.consumer.error-handler=recovering
+    ./boot-app --measurements.consumer.handle-deserialization-error=false --measurements.consumer.error-handler=recovering
 
 It will not be able to progress beyond the error, but at least it does delay
 between attempts to avoid flodding logs and using up a lot of resources.
@@ -1029,15 +1033,15 @@ To see how an *unmodified* `ContainerStoppingBatchErrorHandler` works, you can d
 
 1. Ensure a poison pill message is present on topic:
 
-        ./clients.sh null-producer
+        ./run null-producer
 
 2. Start a regular producer and let it run:
 
-        ./clients.sh producer
+        ./run producer
 
 2. Start Spring boot app with `stop-container` error handler:
 
-        ./spring-boot.sh --measurements.consumer.error-handler=stop-container
+        ./boot-app --measurements.consumer.error-handler=stop-container
 
 Check logs. You will see that as soon as the posion pill message is encountered the error
 handler kicks into action and stops the Spring message listener container. Then
@@ -1098,7 +1102,7 @@ When working with Kafka, a very useful command line tool is
 [kafkacat](https://github.com/edenhill/kafkacat). It is a light weight, but
 powerful Kafka client that supports many options.
 
-A typical installation on Ubuntu Linux can be accomplished with:
+A typical installation on Debian-ish Linux can be accomplished with:
 
     sudo apt install kafkacat
     
@@ -1113,7 +1117,7 @@ Python 3.5+ and kafkacat to run.
 
 Try it out:
 
-1. Ensure measurements producer is running: `./clients.sh producer`
+1. Ensure measurements producer is running: `./run producer`
 
 2. Tail topic:
 
