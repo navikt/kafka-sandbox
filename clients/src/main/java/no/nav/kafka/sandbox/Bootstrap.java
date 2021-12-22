@@ -192,7 +192,7 @@ public class Bootstrap {
         String topic = args.isEmpty() ? SEQUENCE_TOPIC : args.remove();
         Integer partition = args.isEmpty() ? null : Integer.parseInt(args.remove());
         jsonProducer(topic, partition, SequenceValidation.sequenceSupplier(
-                new File("target/sequence-producer.state"), 1, TimeUnit.SECONDS), m -> null);
+                new File("sequence-producer.state"), 1, TimeUnit.SECONDS), m -> null);
     }
 
     private static void sequenceValidatorConsumer(Queue<String> args) {

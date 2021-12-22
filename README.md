@@ -466,7 +466,7 @@ Start the producer:
 It will start at sequence number 0. If you restart, it will continue from where
 was last stopped, since the next sequence number is persisted to a temporary
 file. (To reset this, stop the sequence-producer and remove the file
-`target/sequence-producer.state`.)
+`sequence-producer.state`.)
 
 Now start the corresponding consumer:
 
