@@ -125,6 +125,7 @@ To get started:
     $ chmod +x run
     $ ./run --help
     Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'
+    Use: 'produce N [TOPIC [P]]' to produce exactly N measurements to topic with no delay
     Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'
     Use: 'sequence-producer [TOPIC [P]]' or 'sequence-consumer [TOPIC [GROUP]]'
     Use: 'null-producer [TOPIC [P]]' to produce a single message with null value
