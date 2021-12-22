@@ -96,7 +96,7 @@
                                     <mainClass>no.nav.kafka.sandbox.Bootstrap</mainClass>
                                 </transformer>
                             </transformers>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <outputFile>${project.build.directory}/${project.build.finalName}-exec.jar</outputFile>
                         </configuration>
                     </execution>
                 </executions>
