@@ -2,6 +2,8 @@ package no.nav.kafka.sandbox.messages;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.fusesource.jansi.AnsiConsole;
+import org.fusesource.jansi.AnsiRenderer;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -122,8 +124,11 @@ public class Measurements {
     }
 
     public static void sensorEventToConsole(SensorEvent m) {
-        System.out.println(String.format("Device: %s, value: %d\u00B0 %s, timestamp: %s",
+        final String ansiOutput = AnsiRenderer.render(String.format(
+                "@|cyan Device|@: @|magenta,bold %s|@, value: @|blue,bold %d\u00B0|@ %s, timestamp: @|green %s|@",
                 m.getDeviceId(), m.getValue(), m.getUnitType(), m.getTimestamp()));
+
+        AnsiConsole.out().println(ansiOutput);
     }
 
 }

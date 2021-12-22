@@ -1,5 +1,8 @@
 package no.nav.kafka.sandbox.messages;
 
+import org.fusesource.jansi.AnsiConsole;
+import org.fusesource.jansi.AnsiRenderer;
+
 import java.io.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -56,7 +59,7 @@ public class SequenceValidation {
                 Thread.currentThread().interrupt();
             }
             final long toBeDelivered = sequence.longValue();
-            toConsole("[SEQ] Supplying sequence(%d)", toBeDelivered);
+            toConsole("@|cyan [SEQ]|@ Supplying sequence(%d)", toBeDelivered);
             saveValue(sequence.incrementAndGet());
             return toBeDelivered;
         }
@@ -71,25 +74,25 @@ public class SequenceValidation {
         public void accept(Long received) {
             if (expect == -1) {
                 expect = received + 1;
-                toConsole("[SEQ] Synchronized sequence: received(%d), next expect(%d), errors(%d)", received, expect, errorCount);
+                toConsole("@|cyan [SEQ]|@ @|yellow Synchronized sequence|@: received(%d), next expect(%d), errors(%d)", received, expect, errorCount);
             } else if (received < expect) {
                 ++errorCount;
-                toConsole("[SEQ] ERROR: Received lower sequence than expected: received(%d) < expect(%d), resync next, errors(%d)",
+                toConsole("@|cyan [SEQ]|@ @|red ERROR|@: Received lower sequence than expected: received(%d) < expect(%d), resync next, errors(%d)",
                         received, expect, errorCount);
                 expect = -1;
             } else if  (received > expect){
                 ++errorCount;
-                toConsole("[SEQ] ERROR: Received higher sequence than expected: received(%d) > expect(%d), resync next, errors(%d)",
+                toConsole("@|cyan [SEQ]|@ @|red ERROR|@: Received higher sequence than expected: received(%d) > expect(%d), resync next, errors(%d)",
                         received, expect, errorCount);
                 expect = -1;
             } else {
-                toConsole("[SEQ] In sync: received(%d) = expect(%d), errors(%d)", received, expect, errorCount);
+                toConsole("@|cyan [SEQ]|@ @|blue,bold In sync|@: received(%d) = expect(%d), errors(%d)", received, expect, errorCount);
                 ++expect;
             }
         }
     }
 
     private static void toConsole(String format, Object...args) {
-        System.out.println(String.format(format, args));
+        AnsiConsole.out().println(AnsiRenderer.render(String.format(format, args)));
     }
 }

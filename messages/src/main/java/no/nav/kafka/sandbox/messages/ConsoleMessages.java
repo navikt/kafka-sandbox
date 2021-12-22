@@ -2,6 +2,8 @@ package no.nav.kafka.sandbox.messages;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.fusesource.jansi.AnsiConsole;
+import org.fusesource.jansi.AnsiRenderer;
 
 import java.io.Console;
 import java.util.Objects;
@@ -39,9 +41,8 @@ public class ConsoleMessages {
     }
 
     public static Consumer<Message> consoleMessageConsumer() {
-        return m -> {
-            System.out.println(m.senderId + ": " + m.text);
-        };
+        return message -> AnsiConsole.out().println(
+                AnsiRenderer.render(String.format("@|magenta,bold %s|@: @|yellow %s|@", message.senderId, message.text)));
     }
 
     public static Supplier<Message> consoleMessageSupplier() {
