@@ -48,7 +48,7 @@ public class Bootstrap {
     public static void main(String...a) {
         final LinkedList<String> args = new LinkedList(Arrays.asList(a));
 
-        if (args.isEmpty() || args.get(0).isBlank() || args.contains("-h") || args.get(0).contains("--help")) {
+        if (args.isEmpty() || args.get(0).isBlank() || args.contains("-h") || args.contains("--help")) {
             System.err.println("Use: 'producer [TOPIC [P]]' or 'consumer [TOPIC [GROUP]]'");
             System.err.println("Use: 'produce N [TOPIC [P]]' to produce exactly N measurements to topic with no delay");
             System.err.println("Use: 'console-message-producer [TOPIC [P]]' or 'console-message-consumer [TOPIC [GROUP]]'");
