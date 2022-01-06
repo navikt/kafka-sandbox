@@ -376,7 +376,7 @@ public final class DockerComposeEnv implements AutoCloseable {
                 reader.close();
 
                 if (process.onExit().get().exitValue() == 0 && firstLineOutput != null) {
-                    Matcher matcher = Pattern.compile("version ([0-9.]+)").matcher(firstLineOutput);
+                    Matcher matcher = Pattern.compile("version v?([0-9.]+)").matcher(firstLineOutput);
                     if (! matcher.find()) {
                         continue;
                     }
