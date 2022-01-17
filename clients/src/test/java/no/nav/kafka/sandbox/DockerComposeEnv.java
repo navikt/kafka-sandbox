@@ -281,15 +281,15 @@ public final class DockerComposeEnv implements AutoCloseable {
         List<CompletableFuture<Void>> allReadyTestsComplete = readyTests.stream().map(
                 test -> CompletableFuture.runAsync(()-> {
                             int count = 0;
-                            while (!test.get() && count++ < 100) {
+                            while (!test.get() && count++ < 300) {
                                 try {
                                     Thread.sleep(1000);
                                 } catch (InterruptedException ie) {
                                     throw new RuntimeException("Interrupted while waiting for ready-test");
                                 }
                             }
-                            if (count > 100) {
-                                throw new RuntimeException("Ready-test failed");
+                            if (count >= 300) {
+                                throw new RuntimeException("Ready-test give up after 300 attempts");
                             }
                         }
                 )).collect(Collectors.toList());
