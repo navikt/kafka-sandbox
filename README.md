@@ -168,6 +168,14 @@ deserialization errors for consumers expecting JSON payload.
 The commands 'newtopic', 'deltopic' and 'showtopics' allow simple administration
 of Kafka topics for testing purposes.
 
+### Tip regarding terminal usage
+
+The examples generally require multiple terminal windows, in order to start
+different producer/consumer processes in parallel with visible output. Using
+only terminal tabs is perhaps not the best option, because you will not be able
+to see in real time the different outputs together. If you are already using
+something like tmux you can benefit greatly by using multiple panes and windows.
+
 ### Running directly from IntelliJ
 
 You can create run configurations in IntelliJ for all the examples, by starting
