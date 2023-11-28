@@ -94,7 +94,7 @@ public class EventStoreWithFailureRate<T> extends DefaultEventStore<T> {
 
         public AverageRatioRandom(float failureRate) {
             if (failureRate < 0 || failureRate > 1.0) {
-                throw new IllegalArgumentException("failure rate must be a decmial number between 0.0 and 1.0");
+                throw new IllegalArgumentException("failure rate must be a decimal number between 0.0 and 1.0");
             }
             this.failureRate = failureRate;
         }
