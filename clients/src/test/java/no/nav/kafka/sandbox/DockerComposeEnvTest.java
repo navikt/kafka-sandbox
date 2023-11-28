@@ -1,25 +1,25 @@
 package no.nav.kafka.sandbox;
 
-import no.nav.kafka.sandbox.DockerComposeEnv.DockerComposeExecutable;
+import no.nav.kafka.sandbox.DockerComposeEnv.DockerComposeCommand;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class DockerComposeEnvTest {
+class DockerComposeEnvTest {
 
     @Test
-    public void testDockerComposeExecutable() {
+    void dockerComposeCommand() {
         assertEquals(List.of("docker-compose", "--no-ansi"),
-                new DockerComposeExecutable("docker-compose", "1.28").executableAndDefaultArgs());
+                new DockerComposeCommand("docker-compose", new String[0], "1.28").executableAndDefaultArgs());
         assertEquals(List.of("docker-compose", "--no-ansi"),
-                new DockerComposeExecutable("docker-compose", "1").executableAndDefaultArgs());
+                new DockerComposeCommand("docker-compose", new String[0], "1").executableAndDefaultArgs());
 
         assertEquals(List.of("docker-compose", "--ansi", "never"),
-                new DockerComposeExecutable("docker-compose", "1.29").executableAndDefaultArgs());
-        assertEquals(List.of("docker-compose", "--ansi", "never"),
-                new DockerComposeExecutable("docker-compose", "2").executableAndDefaultArgs());
+                new DockerComposeCommand("docker-compose", new String[0], "1.29").executableAndDefaultArgs());
+        assertEquals(List.of("docker", "compose", "--ansi", "never"),
+                new DockerComposeCommand("docker", new String[]{"compose"}, "2").executableAndDefaultArgs());
     }
 
 }

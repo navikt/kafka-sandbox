@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * Demonstrates use of {@link DockerComposeEnv}, and a few simple tests using a running Kafka instance.
  */
-public class KafkaSandboxTest {
+class KafkaSandboxTest {
 
     private static DockerComposeEnv dockerComposeEnv;
 
@@ -52,9 +52,9 @@ public class KafkaSandboxTest {
     }
 
     @BeforeAll
-    public static void dockerComposeUp() throws Exception {
+    static void dockerComposeUp() throws Exception {
         Assumptions.assumeTrue(DockerComposeEnv.dockerComposeAvailable(),
-                "This test needs a working 'docker-compose' command");
+                "This test needs a working 'docker compose' command");
 
         dockerComposeEnv = DockerComposeEnv.builder("src/test/resources/KafkaDockerComposeEnv.yml")
                 .addAutoPortVariable("KAFKA_PORT")
@@ -66,7 +66,7 @@ public class KafkaSandboxTest {
     }
 
     @AfterAll
-    public static void dockerComposeDown() throws Exception {
+    static void dockerComposeDown() throws Exception {
         if (dockerComposeEnv != null) {
             adminClient.close();
             dockerComposeEnv.down();
@@ -78,17 +78,17 @@ public class KafkaSandboxTest {
     }
 
     @BeforeEach
-    public void createTestTopic() throws Exception {
+    void createTestTopic() throws Exception {
         adminClient.createTopics(Collections.singleton(new NewTopic(testTopic, 1, (short)1))).all().get();
     }
 
     @AfterEach
-    public void deleteTestTopic() throws Exception {
+    void deleteTestTopic() throws Exception {
         adminClient.deleteTopics(Collections.singleton(testTopic)).all().get();
     }
 
     @Test
-    public void waitForMessagesBeforeSending() throws Exception {
+    void waitForMessagesBeforeSending() throws Exception {
         LOG.debug("waitForMessagesBeforeSending start");
         final List<String> messages = List.of("one", "two", "three", "four");
 
@@ -124,7 +124,7 @@ public class KafkaSandboxTest {
     }
 
     @Test
-    public void sendThenReceiveMessages() throws Exception {
+    void sendThenReceiveMessages() throws Exception {
         LOG.debug("sendThenReceiveMessage start");
         final List<String> messages = List.of("one", "two", "three", "four");
 
@@ -157,7 +157,7 @@ public class KafkaSandboxTest {
     }
 
     @Test
-    public void testJsonMessageConsumerAndProducer() throws Exception {
+    void testJsonMessageConsumerAndProducer() throws Exception {
 
         final BlockingQueue<Message> outbox = new ArrayBlockingQueue<>(1);
         final Supplier<Message> supplier = () -> {
