@@ -2,3 +2,5 @@ target/
 /.idea/
 *.iml
 sequence-producer.state
+dependency-reduced-pom.xml
+

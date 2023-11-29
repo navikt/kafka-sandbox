@@ -8,10 +8,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
-import java.util.Collections;
+import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 public class MeasurementsRestController {
@@ -27,11 +25,12 @@ public class MeasurementsRestController {
      * @return messages from most oldest to most recent, optionally filtering by timestamp.
      */
     @GetMapping(path = "/measurements/api", produces = MediaType.APPLICATION_JSON_VALUE)
-    public List<Measurements.SensorEvent> getMeasurements(@RequestParam(value = "after", required = false, defaultValue = "1970-01-01T00:00")
-                                                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime after) {
+    public List<Measurements.SensorEvent> getMeasurements(@RequestParam(value = "after", required = false, defaultValue = "1970-01-01T00:00Z")
+                                                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime after) {
+
         return eventStore.fetchEvents().stream()
                 .filter(e -> e.getTimestamp().isAfter(after))
-                .collect(Collectors.toList());
+                .toList();
     }
 
 }

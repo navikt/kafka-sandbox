@@ -4,10 +4,10 @@ set -e
 cd "$(dirname "$0")"
 
 if ! test -f messages/target/messages-*.jar -a\
-     -f clients-spring/target/clients-spring-*-exec.jar; then
+     -f clients-spring/target/clients-spring-*.jar; then
     mvn -B install
 fi
 
 cd clients-spring
-exec java -jar target/clients-spring-*-exec.jar "$@"
+exec java -jar target/clients-spring-*.jar "$@"
 

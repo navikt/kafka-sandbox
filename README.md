@@ -1,9 +1,12 @@
 # Kafka sandbox - experiments with Kafka clients and Spring Kafka
 
-- basic plain Java producer/consumer clients with minimal dependencies.
-- a Spring Boot application with Kafka consumer endpoints, internal storage and
-  web interfaces. Demonstrates setup of batch processing and batch error handling.
-- tutorials, experiments, demos, samples, learn by doing
+- Kafka Java client 3.6, Java 17+
+- Spring Kafka 3.1, Spring Boot 3.2 (optional in separate module)
+- Basic plain Java producer/consumer clients with minimal dependencies.
+- A Spring Boot application with Kafka consumer endpoints, internal storage and
+  web interfaces.
+- Batch error handling with Spring Kafka.
+- Learn by doing, observing and experimenting.
 
 ## Purpose
 
@@ -30,13 +33,14 @@ and apply it correctly in real production scenarios.
 
 ## Requirements
 
-- [JDK 11+][1]
-- [Maven][2] 3.6.X+ (must be able to handle modular Java project)
-- A working [Docker][3] installation on localhost ([Docker for Windows][4] is fine), and
-  [docker-compose][5].
+- [JDK 17+][1]
+- [Maven][2] 3.8.X+ (must be able to handle modular Java project and modern
+  Java compiler options)
+- A working [Docker][3] installation on localhost ([Docker for Windows][4] is
+  fine), and [docker compose][5].
 - A unix-like shell is very handy, but not a strict requirement.
 
-[1]: https://adoptium.net/archive.html
+[1]: https://adoptium.net/temurin/releases/
 [2]: https://maven.apache.org/
 [3]: https://www.docker.com/
 [4]: https://docs.docker.com/docker-for-windows/install/
@@ -48,7 +52,8 @@ https://kafka.apache.org/documentation/#gettingStarted
 
 This page explains a lot of concepts which are useful to know about beforehand.
 
-And if interested in Spring Kafka: https://docs.spring.io/spring-kafka/reference/html/
+And if interested in Spring Kafka:
+https://docs.spring.io/spring-kafka/reference/index.html
 
 ## Index
 
@@ -70,9 +75,9 @@ And if interested in Spring Kafka: https://docs.spring.io/spring-kafka/reference
    4. [Experiment with Spring application](#spring-experiment)
    5. [Batch consumer error handling in Spring Kafka](#spring-batch-error-1)
    6. [Batch consumer error handling in Spring Kafka: infinite retries](#spring-batch-error-2)
-   7. [Batch consumer error handling in Spring Kafka: limited retries ?](#spring-batch-error-3)
+   7. [Batch consumer error handling in Spring Kafka: limited retries](#spring-batch-error-4)
    8. [Batch consumer error handling in Spring Kafka: really limited retries](#spring-batch-error-4)
-   9. [Batch consumer error handling in Spring Kafka: limited retries and recovery](#spring-batch-error-5)
+   9. [Batch consumer error handling in Spring Kafka: recovery](#spring-batch-error-5)
    10. [What about transient failures when storing events ?](#spring-batch-error-6)
    11. [Handling failure to deserialize messages in batch consumer](#spring-batch-error-7)
    12. [Stopping consumer on fatal errors](#spring-batch-error-8)
@@ -116,7 +121,12 @@ command line clients or Spring boot application of kafka-sandbox, all you need
 to do is run the following in a dedicated terminal with current directory being
 the kafka-sandbox project directory:
 
-    docker-compose up
+    docker compose up -d && docker compose logs -f
+
+To shut down the Kafka service containers, press `CTRL+C` to exit the logs view
+and then type:
+
+    docker compose down
 
 ### Running the kafka-sandbox command line clients
 
@@ -182,7 +192,6 @@ You can create run configurations in IntelliJ for all the examples, by starting
 the `no.nav.kafka.sandbox.Bootstrap` class with the arguments and create a
 Spring boot run configuration for the `Application` class in `clients-spring`.
 So a shell is not strictly required.
-
 
 ## Communication patterns with Kafka                 <a name="kafka-patterns"/>
 
@@ -417,7 +426,7 @@ Run a producer and a consumer in two windows:
 Then pause the docker container with the broker to simulate that it stops
 responding:
 
-    docker-compose pause broker
+    docker compose pause broker
     
 Now watch the error messages from the producer that will eventually appear. A
 prolonged pause will actually cause messages to be lost with the current
@@ -428,7 +437,7 @@ avoid losing events.
 
 Make the broker respond again:
 
-    docker-compose unpause broker
+    docker compose unpause broker
     
 The producer recovers and sends its internal buffer of messages that have not
 yet expired due to timeouts.
@@ -436,7 +445,7 @@ yet expired due to timeouts.
 You may also restart the broker entirely, which causes it to lose its runtime
 state, and see what happens with the clients:
 
-    docker-compose restart broker
+    docker compose restart broker
     
 or:
 
@@ -487,7 +496,7 @@ the error count is 0.
 
 While they are running, restart the Kafka broker:
 
-    docker-compose restart broker
+    docker compose restart broker
     
 You should see the producer keeps sending messages, but does not receive
 acknowledgements. Eventually it will log errors about expired messages. The
@@ -534,23 +543,25 @@ started.)
 
 This causes a sudden death of the consumer process and it will take a short
 while until Kafka notices that the consumer is gone. Watch the broker log and
-what eventually happens with the currently idle consumer.
+what eventually happens with the currently idle consumer. (Note that it may take
+up to a minute before Kafka decides to hand the partition over to the idle, but
+live consumer.)
 
 ## The Spring Boot application                       <a name="spring-boot"/>
 
-The Spring Boot application is in Maven module `clients-spring/`.
+The Spring Boot application is implemented in Maven module `clients-spring/`.
 
 *The application requires that you have a local Kafka broker up and running on
 `localhost:9092`, see [relevant section](#local-kafka).*
 
 ### Running                                          <a name="spring-running"/>
 
-    mvn install              # in top project directory to ensure module 'messages' is installed
-    cd clients-spring
-    java -jar target/clients-spring-*-exec.jar
+From the top level directory:
 
-.. or use the convenience script `boot-app` from project top level
-directory, which is used in all examples:
+    mvn install
+    java -jar clients-spring/target/clients-spring-*.jar
+
+.. or use the convenience script `boot-app`, which is used in all examples:
 
     chmod +x boot-app
     ./boot-app
@@ -564,16 +575,6 @@ from the topics `measurements` (the standard producer in previous examples) and
 `messages` (for messages created by `console-message-producer` client). The
 consumed messages are stored in-memory in a fixed size event store that also
 detects duplicates.
-
-### A notice regarding Spring Kafka 2.8
-
-This project has been upgraded to use Spring Kafka 2.8. Spring Kafka changed
-quite a bit with regard to [error handling in version
-2.8](https://docs.spring.io/spring-kafka/docs/2.8.x/reference/html/#legacy-eh).
-Some experiments related to error handling have been updated to reflect these
-changes and use the new style of error handlers, while others have not. If you
-are still on a version before Spring Kafka 2.8, you can checkout this code base
-at tag `pre-spring-kafka-2.8` to see what the behaviour was like before.
 
 ### Web interfaces                             <a name="spring-web-interfaces"/>
 
@@ -595,7 +596,7 @@ A web page showing "console message" events from Kafka. It uses an API endpoint
 available at http://localhost:8080/messages/api
 
 
-### Talk to Spring boot application (or yourself) using Kafka    <a name="spring-talk-to"/>
+### Talk to Spring boot app (or yourself) using Kafka    <a name="spring-talk-to"/>
 
 1. In one terminal, start the Spring boot application as described earlier.
 
@@ -633,25 +634,23 @@ In the previous scenario, try to artificically slow down the Spring application
 consumer and see what happens to the size of the batches that it consumes. To
 slow it down, start with the following arguments:
 
-    ./boot-app --measurements.consumer.slowdown=5000
+    ./boot-app --measurements.consumer.slowdown=6000
 
 This will make the Kakfa listener endpoint in
-`no.nav.kafka.sandbox.measurements.MeasurementsConsumer#receive` halt for 5
+`no.nav.kafka.sandbox.measurements.MeasurementsConsumer#receive` halt for 6
 seconds every time Spring invokes the method with incoming messages. This
 endpoint is setup with batching enabled, so you should see larger batches being
 processed, depending on amount of messages produced, and how slow the consumer
 is.
 
-The listener endpoint logs the size of batches it processes, so you should be
-able to see it in the application log. By default, the listener endpoint is
-invoked by at most two Spring-kafka managed threads (each with their own
-`KafkaConsumer`). This is setup in
-`no.nav.kafka.sandbox.measurements.MeasurementsConfig`, locate line with
-`factory.setConcurrency(2);`. Do you think concurrency above 1 has any effect
-when the topic only has one partition `measurements-0` ? Inspect the thread-ids
-in the application log as it consumes messages, to determine if there is
-actually more than one thread invoking the listener
-method.
+The listener endpoint logs the size of batches it processes, so you will see it
+in the application log. By default, the listener endpoint is invoked by at most
+two Spring-kafka managed threads (each with their own `KafkaConsumer`). This is
+setup in `no.nav.kafka.sandbox.measurements.MeasurementsConfig`, locate line
+with `factory.setConcurrency(2);`. Do you think concurrency above 1 has any
+effect when the topic only has one partition `measurements-0` ? Inspect the
+thread-ids in the application log as it consumes messages, to determine if there
+is actually more than one thread invoking the listener method.
 
 To produce more messages in parallel, you can start more producers in the
 background:
@@ -702,18 +701,29 @@ various systems. In others words, things will _eventually_ become _inconsistent_
 intead of _consistent_ !
 
 When you start tackling error handling, you should first have a very clear
-picture of the business requirements for your application. Is it acceptable to
-process a single record multiple times if batch errors occur ? Is it acceptable
-to lose records entirely ?
+picture of the business requirements for your application.
+
+- Is it acceptable to process a single record multiple times if batch errors occur ?
+- Is it acceptable to lose records entirely ?
+- Is it necessary to preserve failed records, so that proper processing can be
+  done at a later time (dead letter topic) ?
+- Is ordering important so that events happening after an error has occured
+  (later offsets produced on a Kafka topic) must all wait to be processed until
+  the error has been resolved ?
 
 There are several strategies that can be applied to error handling, and this
-guide only covers a small part of it, namely the core batch error handlers used
-by Spring Kafka consumers. Batch error handling is more difficult to get right
-than single message error handling, since errors typically affect more messages
-when they occur.
+guide only covers a small part of it, namely the core error handlers used by
+Spring Kafka consumers. Batch error handling is more difficult to get right than
+single message error handling, since errors typically affect all messages in a
+batch, regardless if just some of them are the cause of the failure.
+
+Spring Kafka has sophisticted support for various error handling strategies and
+one can easily become lost in options and configuration. Start with the simplest
+possible strategy, and keep it as simple as possible at all times, when
+implementing your business requirements.
 
 Topics such as outbox pattern, integrating Kafka with transactions and dead
-letter topics are not covered here.
+letter topics are not covered by this guide.
 
 #### On to experiment
 
@@ -742,11 +752,20 @@ Try this:
         ./boot-app --measurements.event-store.failure-rate=1
         
 Now all (100%) store operations will fail with `IOException`. See what happens
-in the application log. Error handling is all Spring Kafka defaults. Does Spring
+in the application log. Error handling is all Spring Kafka defaults, which means
+that no particular error handler has been configured and the
+`FallbackBatchErrorHandler` will be used automatically by Spring. Does Spring
 commit offsets when exceptions occur in consumer ? In other words, does it
 progress beyond the point of failure and discard the failed records ?
 
-Next we can try to determine the default error resilience of the consumer.
+As we can see in the application log, for each failed record the consumer is
+invoked 10 times, then an ERROR is logged by Spring, telling us that the
+record(s) is discarded. So the default error handler retries 10 times before
+giving up. Then offsets are committed and so it progresses, and the record is
+lost.
+
+Let's try to determine the error resilience of the consumer using the default
+Spring error handler and no recovery options.
 
 1. Ensure all producers and Spring Boot app are stopped. Clear measurements
    topic and produce exactly 100 records:
@@ -781,9 +800,10 @@ attempts to redeliver failed batches ?
 
 ### Logging and ignoring all errors
 
-You can use an error handler which ignores errors, but still logs them:
+You can use an error handler which ignores errors, does no retries, but still
+logs them:
 
-    ./boot-app --measurements.event-store.failure-rate=1 --measurements.consumer.error-handler=ignore
+    ./boot-app --measurements.event-store.failure-rate=1 --measurements.consumer.error-handler=log-and-ignore
 
 Start a producer and watch Spring Boot log. You'll see that batches are logged
 as errors, but never retried. Spring Kafka progresses; it logs the failed
@@ -807,51 +827,17 @@ messages with a `null` value are not accepted by the consumer (although they are
 allowed by Kafka, and do not fail on JSON deserialization).
 
 Does Spring ever give up retrying the failing batch ? Watch the log from the
-Spring Boot app. It continues to try forever without really logging much.
+Spring Boot app. It continues to try forever without really logging much. When
+quitting the app by pressing `CTRL+C`, Spring logs en ERROR that it was stopped
+while retry error handling was in progress.
 
-_Note: in Spring Kafka 2.8, shutting down the app with `CTRL+C` leads to some
-strange behaviour with this error handler configuration, where frequency of
-retries increase for 30 seconds until app finally shuts down. Currently not sure
-why, it may be a bug when using an infinite back-off-strategy for the error
-handler._
 
-### NB ! The following experiments on error handling use legacy error handlers
+### Experiment: batch consumer error handling in Spring Kafka: limited retries    <a name="spring-batch-error-4"/>
 
-The following experiments use error handlers that have been deprecated starting
-with Spring Kafka 2.8.
-
-### Experiment: batch consumer error handling in Spring Kafka: limited retries ?     <a name="spring-batch-error-3"/>
-
-Note that if you have messages on a topic that cause failures and you want to
-start fresh for a new experiment, you can just delete the topics first:
-
-    ./run deltopic measurements
-    ./run deltopic messages
-
-Now try this:
-
-1. Start Spring Boot app with error handling that should give up after 2 retries:
-
-        ./boot-app --measurements.consumer.error-handler=seek-to-current-with-backoff
-
-2. In another terminal, send a single null-message to the 'measurements' topic:
-
-        ./run null-producer measurements
-
-Does Spring ever give up retrying the failing batch ? What is the delay between
-retry attempts ? Watch the log from the Spring Boot app.
-
-The configuration for this error handler can be found in `MeasurementsConfig`.
-Notice a subtlety here: even though the backoff is configured to retry at most 2
-times, *it still continues forever*. The reason for this is explained [in the
-docs](https://docs.spring.io/spring-kafka/docs/2.7.x/reference/html/#seek-to-current).
-
-### Experiment: batch consumer error handling in Spring Kafka: really limited retries    <a name="spring-batch-error-4"/>
-
-To actually limit number of retries for failed messages when using batch
-consumer, there are a few other options. We will test
-[RetryingBatchErrorHandler](https://docs.spring.io/spring-kafka/docs/current/reference/html/#retrying-batch-eh)
-here.
+To control number of retries for failed messages when using batch consumer, you
+will typically configure a certain `BackOff` spec on the `DefaultErrorHandler`.
+This controls how many times processin of a batch will be retried and how long
+it should pause/backoff between attempts.
 
 Try this:
 
@@ -869,8 +855,8 @@ Try this:
 
         ./run produce 3
         
-    After quitting there will be somewhere between 7 messages present on the
-    topic, including the `null` message in the middle.
+    After quitting there will be 7 messages present on the topic, including the
+    `null` message in the middle.
 
 5. Start Spring Boot app with retrying error handler that should give up after 2 retries:
 
@@ -882,7 +868,7 @@ failure in the middle of the batch processing. Note that only the events
 processed before the poison pill in the batch are actually stored. We lost the
 messages coming after the poison `null` message in the batch entirely ! See if
 you can spot the end result by navigating to
-[https://localhost:8080/measurements.html](https://localhost:8080/measurements.html).
+[http://localhost:8080/measurements.html](http://localhost:8080/measurements.html).
 You should only see the messages produced in step 2. (The producer PID which is
 printed to the console is part of the sensor-id for the measurement events,
 which allows you to correlate.)
@@ -890,36 +876,42 @@ which allows you to correlate.)
 After giving up, the error handler logs an error and a list of discarded
 messages. But this error handler also allows us to configure a
 `ConsumerRecordRecoverer` which will be given the opportunity to recover
-messages, one by one, after all retry attempts have been exhausted. You can redo
-this experiment with the recovery option by running Spring boot app with error
-handler `retry-with-backoff-recovery` instead of `retry-with-backoff`. Are
-messages after the poision pill still lost ? See the code for this in
-`RetryingErrorHandler`.
+messages, one by one, after all retry attempts have been exhausted.
 
-In general, if you can ensure your storage is idempotent, you will be saving
+You can redo this experiment with the recovery option by running Spring boot app
+with error handler `retry-with-backoff-recovery` instead of
+`retry-with-backoff`. Are messages after the poision pill still lost ? See the
+code for this in `RetryingErrorHandler`, which is a custom extension of the
+Spring Kafka `DefaultErrorHandler`, but all it really does it set a recoverer
+and back-off-spec.
+
+If you can ensure your storage or processing is idempotent, you will be saving
 yourself some trouble in these situations, so that multiple writes of the same
-data is not a problem. The event store in the Spring Boot app has this property.
+data is not a problem. The event store in the Kafka Sandbox Spring Boot app has
+this property. In other words, strive for "at least once" message processing
+semantics.
 
 
-### Experiment: batch consumer error handling in Spring Kafka: limited retries and recovery     <a name="spring-batch-error-5"/>
+### Experiment: batch consumer error handling in Spring Kafka: recovery     <a name="spring-batch-error-5"/>
 
-A more sophisticated error handler called
-[RecoveringBatchErrorHandler](https://docs.spring.io/spring-kafka/docs/current/reference/html/#recovering-batch-eh)
-is also available. Notice in the code for `RetryingErrorHandler` that it has to
-take care of storing valid events to the event store, which is also the consumer
-code's main job. So there is a slight duplication of efforts there. Constrast to
-code in `RecoveringErrorHandler` which only needs to bother with exactly those
-messages that caused failure in a batch. Those cannot be stored anyway, so it
-does not require access to the event store.
+Notice in the code for our custom `RetryingErrorHandler` (enabled with
+`retry-with-backoff-recovery` from previous experiment) that it has to take care
+of storing valid events to the event store, which is also the main job of the
+consumer code. So there is a duplication of efforts there. We can actually just
+use the Spring Kafka `DefaultErrorHandler` with a recoverer, and make our batch
+consumer throw `BatchListenerFailedException`, instead of direct causes. This
+makes Spring aware of which record in a batch that failed, and so only the
+problematic records need recovery handling.
 
 Try this:
 
 1. Go through steps 1-4 in the previous section, so that you end up with a
    poison pill null message in between other valid messages on the topic.
    
-2. Start Spring Boot app with the recovering error handler:
+2. Start Spring Boot app with the recovering error handler and enable use of
+   `BatchListenerFailedException` in consumer:
 
-        ./boot-app --measurements.consumer.error-handler=recovering
+        ./boot-app --measurements.consumer.error-handler=recovering --measurements.consumer.useBatchListenerFailedException=true
         
 Notice in the the logs as the consumer first reports receiving the batch of
 messages. An exception is thrown because of the `null` message. The next time
@@ -937,6 +929,7 @@ End result: all valid messages that could be stored, have been stored, and the
 poison pill null message was simply skipped. Also, there is a performance
 benefit when comparing to the `RetryingErrorHandler`, since the valid messages
 are not written multiple times to the store during retries/recovery.
+
 
 ### What about transient failures when storing events ?          <a name="spring-batch-error-6"/>
 
@@ -957,7 +950,7 @@ You can try this of course:
 2. Start Spring boot app with an event store that sometimes fail and using
    the recovering error handler:
 
-        ./boot-app --measurements.consumer.error-handler=recovering --measurements.event-store.failure-rate=0.5
+        ./boot-app --measurements.consumer.error-handler=recovering --measurements.event-store.failure-rate=0.5 --measurements.consumer.useBatchListenerFailedException=true
 
 3. Start a producer in another terminal:
 
@@ -978,7 +971,7 @@ You can try this of course:
 ### Handling failure to deserialize messages in batch consumer       <a name="spring-batch-error-7"/>
 
 Since the deserialization step happens before our consumer listener gets the
-message, it needs to be handled in a special way. Spring has designed the
+messages, it needs to be handled in a special way. Spring has designed the
 `ErrorHandlingDeserializer` Kafka deserializer for this purpose. It catches
 failed attempts at deserializing from a delegated deserializer class.
 
@@ -998,7 +991,7 @@ Test it out:
 Watch logs in Spring boot app. You'll see an error logged with information about
 the record that failed. This is accomplished by using Spring-Kafka
 `ErrorHandlingDeserializer` which delegates to the `JsonDeserializer`. Code for
-setting this up is found in `MesurementsConfig`. Code for extracting the error
+setting this up is found in `MeasurementsConfig`. Code for extracting the error
 in the batch listener can be found in `MeasurementsConsumer`.
 
 Now try disabling handling of deserialization errors:
@@ -1026,19 +1019,23 @@ It will not be able to progress beyond the error, but at least it does delay
 between attempts to avoid flodding logs and using up a lot of resources.
 
 The best practice is to actually handle deserialization errors, like
-demonstrated earlier.
+demonstrated earlier. Or you will have to write a custom error handler which can
+deal with `SerializationException`, which the `DefaultErrorHandler` cannot
+process.
 
 ### Stopping consumer on fatal errors            <a name="spring-batch-error-8"/>
 
-Sometimes an error is definitively not recoverable and some form of manual intervention or
-application restart is required. An example may be that the consumer is not authorized to write data to
-the target data store due to invalid credentials. In such cases you can look to
-`ContainerStoppingBatchErrorHandler` in Spring Kafka, which by default simply shuts down
-the consumer on any error thrown from the batch processing in the listener.
-By extending this class, you can test the type of error and delegate to the super class
-if the error is deemed fatal.
+Sometimes an error is definitively not recoverable and some form of manual
+intervention or application restart is required. An example may be that the
+consumer is not authorized to write data to the target data store due to invalid
+credentials. In such cases you can look to `CommonContainerStoppingErrorHandler`
+in Spring Kafka, which by default simply shuts down the consumer on any error
+thrown from the batch processing in the listener. By extending this class, you
+can test the type of error and delegate to the super class if the error is
+deemed fatal.
 
-To see how an *unmodified* `ContainerStoppingBatchErrorHandler` works, you can do the following:
+To see how an *unmodified* `CommonContainerStoppingErrorHandler` works, you can
+do the following:
 
 1. Ensure a poison pill message is present on topic:
 
@@ -1052,20 +1049,21 @@ To see how an *unmodified* `ContainerStoppingBatchErrorHandler` works, you can d
 
         ./boot-app --measurements.consumer.error-handler=stop-container
 
-Check logs. You will see that as soon as the posion pill message is encountered the error
-handler kicks into action and stops the Spring message listener container. Then
-all activity stops and the topic-partition is unassigned from the consumer. As this app
-does not provide any way of re-starting the consumer, the app itself must be restarted to
-try again.
+Check logs. You will see that as soon as the posion pill message is encountered
+the error handler kicks into action and stops the Spring message listener
+container. Then all activity stops and the topic-partition is unassigned from
+the consumer. As this app does not provide any way of re-starting the consumer,
+the app itself must be restarted to try again.
+
 
 ### Further reading and experimentation
 
 You can investigate and modify code in `MeasurementsConfig` and in package
 `no.nav.kafka.sandbox.measurements.errorhandlers` to experiment further. Spring
 has a large number of options and customizability with regard to error handling
-in Kafka consumers.
+in Kafka consumers (see `CommonErrorHandler` and all of its sub-types).
 
-Also see https://docs.spring.io/spring-kafka/reference/html/#error-handlers
+Also see https://docs.spring.io/spring-kafka/reference/kafka/annotation-error-handling.html#error-handlers
 
 
 ## Tuning logging to get more details                    <a name="log-tuning"/>
@@ -1085,14 +1083,14 @@ environment for unit tests. It makes it simple to bring up/down
 docker-compose-configurations between tests and handles port assignments and
 other boring details automatically. It also ensures that the Docker resources
 have unique names that should not conflict with other containers. It requires
-the `docker-compose` command to function, but has no other dependencies. A basic
-Kafka docker-compose configuration is stored in
+the `docker compose` command to function, but has no other dependencies. A basic
+compose configuration for Kafka services is stored in
 `src/test/resources/DockerComposeKafkaEnv.yml`, which is used by
 `KafkaSandboxTest`.
 
 See example of usage in `KafkaSandboxTest`.
 
-### Tips to clean up ephemeral Docker containers and networks
+## Tips to clean up ephemeral Docker containers and networks
 
 When developing unit tests, sometimes things go awry and the Docker containers
 comprising the temporary Kafka environments are not cleaned up. Here are a few
@@ -1128,7 +1126,7 @@ Try it out:
 
 1. Ensure measurements producer is running: `./run producer`
 
-2. Tail topic:
+2. Tail topic example:
 
         $ clients-kafkacat/topic-tail -f measurements
         [measurements-0] key sensor-9950, sz   127, ts 2020-10-06T22:50:53.755, offset 0
@@ -1145,3 +1143,8 @@ to some interesting command line tools:
     
 Then type "kafka-" and press TAB a couple of times to find the commands
 available.
+
+## Ending words
+
+Hopefully you will have learned a thing or two by following this guide. Any
+feedback, suggestions, bug reports, etc. can be directed at the author: oyvind@stegard.net

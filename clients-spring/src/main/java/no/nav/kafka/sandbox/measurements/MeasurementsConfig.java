@@ -81,10 +81,9 @@ public class MeasurementsConfig {
     public ConcurrentKafkaListenerContainerFactory<String, SensorEvent> measurementsListenerContainer(
             ConsumerFactory<String, SensorEvent> consumerFactory,
             Optional<CommonErrorHandler> errorHandler,
-            Optional<BatchErrorHandler> legacyErrorHandler, // just temporary, since we still have legacy error handlers in config
             @Value("${measurements.consumer.handle-deserialization-error:true}") boolean handleDeserializationError) {
 
-        // Consumer configuration from application.yml, where we will override some properties:
+        // Consumer configuration from application.yml, where we will override some properties here:
         Map<String, Object> externalConfigConsumerProps = new HashMap<>(consumerFactory.getConfigurationProperties());
 
         ConcurrentKafkaListenerContainerFactory<String, SensorEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
@@ -99,11 +98,8 @@ public class MeasurementsConfig {
         factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.BATCH);
 
         if (errorHandler.isPresent()) {
-            LOG.info("Using error handler: {}", errorHandler.get().getClass().getSimpleName());
+            LOG.info("Using error handler: {}", errorHandler.map(h -> h.getClass().getSimpleName()).orElse("none"));
             factory.setCommonErrorHandler(errorHandler.get());
-        } else if (legacyErrorHandler.isPresent()) {
-            LOG.info("Using legacy error handler: {}", legacyErrorHandler.get().getClass().getSimpleName());
-            factory.setBatchErrorHandler(legacyErrorHandler.get());
         } else {
             LOG.info("Using Spring Kafka default error handler");
         }
@@ -122,8 +118,8 @@ public class MeasurementsConfig {
             boolean handleDeserializationError) {
         // override some consumer props from external config
         Map<String, Object> consumerProps = new HashMap<>(externalConfigConsumerProps);
-        consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "spring-web-measurement");
-        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "spring-web-measurement");
+        consumerProps.put(ConsumerConfig.CLIENT_ID_CONFIG, "boot-app-measurement");
+        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "boot-app-measurement");
 
         // Deserialization config
         consumerProps.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
@@ -139,7 +135,7 @@ public class MeasurementsConfig {
     }
 
     @Bean
-    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "ignore")
+    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "log-and-ignore")
     public CommonErrorHandler ignoreHandler() {
         return new CommonLoggingErrorHandler();
     }
@@ -150,44 +146,28 @@ public class MeasurementsConfig {
         return new DefaultErrorHandler(new FixedBackOff(FixedBackOff.DEFAULT_INTERVAL, FixedBackOff.UNLIMITED_ATTEMPTS));
     }
 
-    // TODO: upgrade to non-deprecated common class of error handlers with similar behaviour:
-    @Bean
-    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "seek-to-current")
-    public BatchErrorHandler seekToCurrentHandler() {
-        return new SeekToCurrentBatchErrorHandler();
-    }
-
-    @Bean
-    @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "seek-to-current-with-backoff")
-    public BatchErrorHandler seekToCurrentWithBackoffHandler() {
-        SeekToCurrentBatchErrorHandler handler = new SeekToCurrentBatchErrorHandler();
-        // For this error handler, max attempts actually does not matter
-        handler.setBackOff(new FixedBackOff(2000L, 2));
-        return handler;
-    }
-
     @Bean
     @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "retry-with-backoff")
-    public BatchErrorHandler retryWithBackoffHandler() {
-        return new RetryingBatchErrorHandler(new FixedBackOff(2000L, 2), null);
+    public CommonErrorHandler retryWithBackoffHandler() {
+        return new DefaultErrorHandler(new FixedBackOff(2000L, 2));
     }
 
     @Bean
     @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "retry-with-backoff-recovery")
-    public BatchErrorHandler retryWithBackoffRecoveryHandler(EventStore<SensorEvent> eventStore) {
+    public CommonErrorHandler retryWithBackoffRecoveryHandler(EventStore<SensorEvent> eventStore) {
         return new RetryingErrorHandler(eventStore);
     }
 
     @Bean
     @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "recovering")
-    public BatchErrorHandler recoveringHandler() {
+    public CommonErrorHandler recoveringHandler() {
         return new RecoveringErrorHandler();
     }
 
     @Bean
     @ConditionalOnProperty(value = "measurements.consumer.error-handler", havingValue = "stop-container")
-    public BatchErrorHandler containerStoppingHandler() {
-        return new ContainerStoppingBatchErrorHandler();
+    public CommonErrorHandler containerStoppingHandler() {
+        return new CommonContainerStoppingErrorHandler();
     }
 
 }
