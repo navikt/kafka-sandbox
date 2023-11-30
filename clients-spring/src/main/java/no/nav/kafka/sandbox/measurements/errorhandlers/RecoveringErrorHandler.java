@@ -2,11 +2,14 @@ package no.nav.kafka.sandbox.measurements.errorhandlers;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.ListenerExecutionFailedException;
-import org.springframework.kafka.listener.RecoveringBatchErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
-public class RecoveringErrorHandler extends RecoveringBatchErrorHandler {
+/**
+ * This error handler does not recover anything more than exactly failed records
+ */
+public class RecoveringErrorHandler extends DefaultErrorHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(RecoveringErrorHandler.class);
 

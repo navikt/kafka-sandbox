@@ -5,12 +5,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import org.fusesource.jansi.AnsiConsole;
 import org.fusesource.jansi.AnsiRenderer;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 public class Measurements {
@@ -20,14 +19,14 @@ public class Measurements {
         private final String deviceId;
         private final String measureType;
         private final String unitType;
-        private final LocalDateTime timestamp;
+        private final OffsetDateTime timestamp;
         private final Integer value;
 
         @JsonCreator
         public SensorEvent(@JsonProperty("deviceId") String deviceId,
                            @JsonProperty("measureType") String measureType,
                            @JsonProperty("unitType") String unitType,
-                           @JsonProperty("timestamp") LocalDateTime timestamp,
+                           @JsonProperty("timestamp") OffsetDateTime timestamp,
                            @JsonProperty("value") Integer value) {
             this.deviceId = Objects.requireNonNull(deviceId);
             this.measureType = Objects.requireNonNull(measureType);
@@ -48,7 +47,7 @@ public class Measurements {
             return unitType;
         }
 
-        public LocalDateTime getTimestamp() {
+        public OffsetDateTime getTimestamp() {
             return timestamp;
         }
 
@@ -115,12 +114,16 @@ public class Measurements {
     }
 
     /**
-     * @return a single random sensor event
+     * @return a generated sensor event
      */
     public static SensorEvent generateEvent() {
-        final int temp = (int)(Math.random()*20 + 19);
-        return new SensorEvent("sensor-" + ProcessHandle.current().pid(),
-                "temperature", "celcius", LocalDateTime.now(), temp);
+        final long pid = ProcessHandle.current().pid();
+        final int temperatureBase = (int)(pid % 100);
+        final int temperaturVariance = (int)(pid % 10);
+        final String sensorId = "sensor-" + pid;
+
+        final int temp = (int)(Math.random()*temperaturVariance + temperatureBase);
+        return new SensorEvent(sensorId,"temperature", "celcius", OffsetDateTime.now(), temp);
     }
 
     public static void sensorEventToConsole(SensorEvent m) {

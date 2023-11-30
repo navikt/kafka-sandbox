@@ -1,12 +1,12 @@
 spring:
   application:
-    name: Kafka sandbox web
+    name: Kafka sandbox boot-app
   # See class org.springframework.boot.autoconfigure.kafka.KafkaProperties:
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
-      client-id: spring-web
-      group-id: ${GROUPID:spring-web}
+      client-id: boot-app
+      group-id: ${GROUPID:boot-app}
       properties:
         spring.json.trusted.packages: no.nav.kafka.sandbox.messages
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
@@ -44,15 +44,18 @@ measurements:
 
     # Select error handler:
     # 'spring-default': just uses the Spring default for batch error handling (does not explicitly set an error handler).
-    # 'ignore':  logs, but ignores all errors from consumer, implemented in Spring error handler CommonLoggingErrorHandler.
+    # 'log-and-ignore': logs, but ignores all errors from consumer, implemented in Spring error handler CommonLoggingErrorHandler.
     # 'infinite-retry': tries failed batches an infinite number of times, with a backoff/delay between each attempt. Spring DefaultErrorHandler with a BackOff.
-    # 'seek-to-current': Spring SeekToCurrentBatchErrorHandler w/all defaults and no backoff (unlimited retries)
-    # 'seek-to-current-with-backoff': Spring SeekToCurrentBatchErrorHandler w/fixed delay and max 2 retries.
-    # 'retry-with-backoff': Spring RetryingBatchErrorHandler with no configured ConsumerRecordRecoverer
-    # 'retry-with-backoff-recovery': Spring RetryingBatchErrorHandler with custom ConsumerRecordRecoverer set, see RetryingErrorHandler.
-    # 'recovering': Spring RecoveringBatchErrorHandler, see RecoveringErrorHandler.
-    # 'stop-container': Spring ContainerStoppingBatchErrorHandler
+    # 'retry-with-backoff': Spring DefaultErrorHandler with 2 retry attempts
+    # 'retry-with-backoff-recovery': no.nav.k.s.m.e.RetryingErrorHandler with custom ConsumerRecordRecoverer set.
+    # 'recovering': no.nav.k.s.m.e.RecoveringErrorHandler
+    # 'stop-container': Spring CommonContainerStoppingErrorHandler
     error-handler: spring-default
+
+    # Select whether consumer should throw BatchListenerFailedException w/cause when an internal processing failure occurs, or
+    # just directly throw any exception. Setting to true will allow Spring to detect where a failure occured in a batch of multiple
+    # records.
+    useBatchListenerFailedException: false
 
     # Select whether deserialization exceptions of values should be handled:
     handle-deserialization-error: true

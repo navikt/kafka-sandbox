@@ -16,11 +16,16 @@ import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.lang.ProcessBuilder.Redirect.appendTo;
 
 /**
- * Support class for invoking docker-compose and waiting for services, typically to be used in tests.
+ * All-in-one support class for invoking docker compose and waiting for services to become ready,
+ * typically to be used in tests.
+ *
+ * This is basically a simple version of TestContainers implemented in a single Java file,
+ * where you must supply your own Docker Compose spec file and setup any desired ready-tests programatically.
  */
 public final class DockerComposeEnv implements AutoCloseable {
 
@@ -325,19 +330,23 @@ public final class DockerComposeEnv implements AutoCloseable {
         dockerCompose("down", "--volumes").start().onExit().get(120, TimeUnit.SECONDS);
     }
 
-    static class DockerComposeExecutable {
+    static class DockerComposeCommand {
         public final String executable;
+        private final String[] args;
         public final String version;
 
-        public DockerComposeExecutable(String executable, String version) {
+        DockerComposeCommand(String executable, String[] args, String version) {
             this.executable = Objects.requireNonNull(executable);
+            this.args = Objects.requireNonNull(args);
             this.version = Objects.requireNonNull(version);
         }
 
-        public List<String> executableAndDefaultArgs() {
-            return compareVersions(version, "1.29") < 0 ?
-                    List.of(executable, "--no-ansi") :
-                    List.of(executable, "--ansi", "never"); // docker-compose v1.29 or newer.
+        List<String> executableAndDefaultArgs() {
+            return Arrays.stream(new String[][]{
+                    new String[]{executable},
+                    args,
+                    compareVersions(version, "1.29") < 0 ? new String[]{"--no-ansi"} : new String[]{"--ansi", "never"}
+            }).flatMap(e -> Arrays.stream(e)).toList();
         }
 
         private static int compareVersions(String v1, String v2) {
@@ -356,17 +365,31 @@ public final class DockerComposeEnv implements AutoCloseable {
             }
             return 0;
         }
+
+        @Override
+        public String toString() {
+            return String.join(" ", executableAndDefaultArgs()) + " [version " + version + "]";
+        }
     }
 
-    private static DockerComposeExecutable findExecutable() {
-        for (final String executable : new String[] {
-                "/usr/bin/docker-compose",
-                "/usr/local/bin/docker-compose",
-                "/usr/local/sbin/docker-compose",
-                "docker-compose",
-                "docker-compose.exe"}) {
+    private static DockerComposeCommand resolveDockerComposeCommand() {
+        for (final String dockerVersionProbe : new String[] {
+                "docker compose version",
+                "docker.exe compose version",
+                "docker-compose --version",
+                "docker-compose.exe --version",
+                "/usr/bin/docker compose version",
+                "/usr/bin/docker-compose --version",
+                "/usr/sbin/docker compose version",
+                "/usr/sbin/docker-compose --version",
+                "/usr/local/bin/docker compose version",
+                "/usr/local/bin/docker-compose --version",
+                "/usr/local/sbin/docker compose version",
+                "/usr/local/sbin/docker-compose --version"
+        }) {
             try {
-                Process process = new ProcessBuilder(executable, "--version")
+                final String[] probeCommand = dockerVersionProbe.split(" ");
+                Process process = new ProcessBuilder(probeCommand)
                         .redirectError(ProcessBuilder.Redirect.DISCARD)
                         .start();
 
@@ -380,13 +403,18 @@ public final class DockerComposeEnv implements AutoCloseable {
                     if (! matcher.find()) {
                         continue;
                     }
+                    final boolean composeV2Style = probeCommand[0].endsWith("docker");
                     final String version = matcher.group(1);
-                    return new DockerComposeExecutable(executable, version);
+                    if (composeV2Style) {
+                        return new DockerComposeCommand(probeCommand[0], new String[]{"compose"}, version);
+                    } else {
+                        return new DockerComposeCommand(probeCommand[0], new String[0], version);
+                    }
                 }
             } catch (Exception e) {
             }
         }
-        throw new IllegalStateException("Could not find or execute docker-compose command on operating system");
+        throw new IllegalStateException("Could not find or execute docker compose command on operating system");
     }
 
     /**
@@ -395,7 +423,7 @@ public final class DockerComposeEnv implements AutoCloseable {
      */
     public static boolean dockerComposeAvailable() {
         try {
-            findExecutable();
+            resolveDockerComposeCommand();
             return true;
         } catch (Exception e) {
             return false;
@@ -403,18 +431,16 @@ public final class DockerComposeEnv implements AutoCloseable {
     }
 
     private ProcessBuilder dockerCompose(String...composeCommandAndArgs) {
-        DockerComposeExecutable dcExec = findExecutable();
-        log.debug("docker compose command is {}, version {}", dcExec.executable, dcExec.version);
+        DockerComposeCommand dcExec = resolveDockerComposeCommand();
+        log.debug("docker compose command is: {}", dcExec);
         List<String> commandArgs = new ArrayList<>(dcExec.executableAndDefaultArgs());
         commandArgs.addAll(List.of("-f", Path.of(this.configFile).toString(), "-p", dockerComposeProjectName()));
         commandArgs.addAll(Arrays.asList(composeCommandAndArgs));
         ProcessBuilder pb = new ProcessBuilder(commandArgs);
-        this.env.forEach((k,v) -> {
-            pb.environment().put(k, v);
-        });
+        this.env.forEach((k,v) -> pb.environment().put(k, v));
         if (this.dockerComposeLogDir != null){
-            pb.redirectOutput(appendTo(this.dockerComposeLogDir.resolve("DockerComposeEnv-" + obtainPid() + "-stdout.log").toFile()));
-            pb.redirectError(appendTo(this.dockerComposeLogDir.resolve("DockerComposeEnv-" + obtainPid() + "-stderr.log").toFile()));
+            pb.redirectOutput(appendTo(this.dockerComposeLogDir.resolve(dockerComposeProjectName() + "-stdout.log").toFile()));
+            pb.redirectError(appendTo(this.dockerComposeLogDir.resolve(dockerComposeProjectName() + "-stderr.log").toFile()));
         } else {
             pb.redirectOutput(ProcessBuilder.Redirect.DISCARD);
             pb.redirectError(ProcessBuilder.Redirect.DISCARD);
@@ -424,7 +450,7 @@ public final class DockerComposeEnv implements AutoCloseable {
     }
 
     private String dockerComposeProjectName() {
-        return "DockerComposeEnv-test-" + obtainPid();
+        return getClass().getSimpleName().toLowerCase() + "-" + obtainPid();
     }
 
     private static long obtainPid() {

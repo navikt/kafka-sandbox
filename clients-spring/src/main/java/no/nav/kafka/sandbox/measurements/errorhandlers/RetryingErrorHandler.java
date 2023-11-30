@@ -4,18 +4,22 @@ import no.nav.kafka.sandbox.data.EventStore;
 import no.nav.kafka.sandbox.messages.Measurements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.listener.ListenerExecutionFailedException;
-import org.springframework.kafka.listener.RetryingBatchErrorHandler;
 import org.springframework.util.backoff.FixedBackOff;
 
 import java.io.IOException;
 
-public class RetryingErrorHandler extends RetryingBatchErrorHandler {
+/**
+ * Error handler with access to event store, tries to recover records by writing to store, under certain
+ * conditions.
+ */
+public class RetryingErrorHandler extends DefaultErrorHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(RetryingErrorHandler.class);
 
     public RetryingErrorHandler(EventStore<Measurements.SensorEvent> store) {
-        super(new FixedBackOff(2000L, 2), (record, exception) -> {
+        super((record, exception) -> {
             Throwable cause = exception;
             if (exception instanceof ListenerExecutionFailedException) {
                 cause = exception.getCause();
@@ -51,7 +55,7 @@ public class RetryingErrorHandler extends RetryingBatchErrorHandler {
             // Depending on business requirements (e.g. if not at-least-once semantics), then another strategy might
             // be to skip the whole batch, let Spring commit offsets and continue with the next instead.
             throw new RuntimeException("Unrecoverable batch error", cause);
-        });
+        }, new FixedBackOff(2000L, 2));
     }
 
 }
