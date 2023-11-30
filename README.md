@@ -105,14 +105,14 @@ docker-compose works on your host:
 
     mvn install
     
-If all goes well, an executable über-jar is built in
-`clients/target/clients-<version>-exec.jar` for the basic Java clients. The
-automated tests actually spin up Kafka on localhost, and so take a while to
-complete. To skip the tests during development iterations, use `mvn install
--DskipTests` instead.
+If all goes well, an executable jar is built in
+`clients/target/clients-<version>.jar` for the basic Java clients. The automated
+tests actually spin up Kafka on localhost, and so take a while to complete. To
+skip the tests during development iterations, use `mvn install -DskipTests`
+instead.
 
 The jar-file can be executed simply by running `./run` from the project
-top directory, or alternatively using `java -jar clients/target/clients-*-exec.jar`.
+top directory, or alternatively using `java -jar clients/target/clients-*.jar`.
 
 ### Running a Kafka environment on localhost             <a name="local-kafka"/>
 
